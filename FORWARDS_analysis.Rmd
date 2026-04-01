@@ -1,0 +1,1317 @@
+---
+title: "FORWARDS_pre_analysis"
+author: "Annemarie Eckes-Shephard"
+date: "2025-10-29"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+
+#devtools::install_github("MagicForrest/DGVMTools")
+library(DGVMTools)
+library(gridExtra)
+base_dir = "/Volumes/Anne's Backup/ForestPaths/v16/"
+source("~/Documents/1_TreeMort/2_Analysis/3_analysis_ForestPaths_Exploratory_runs/scripts/helper_functions.R")
+country="Sweden" #"Sweden" # "Germany", "Poland", "Spain"
+
+base_dir <- "/Volumes/Anne's Backup/FORWARDS/"
+
+plot_all = FALSE
+
+var = "cmass_forest"
+
+gridlist <- read.table("../../3_analysis_ForestPaths_Exploratory_runs/scripts/gridlist_final.txt")
+plot(gridlist$V1,gridlist$V2)
+
+
+points( 28.25, 64.25,col="red",pch=16)
+#        25.25, 61.75
+# we use management names, and ForestPaths uses cases ( numbers). here I can quickly map one to the other:
+# from Table 2b in Exploratory Cases M7.
+# 999 means these are not actually part of ForestPaths
+cases=data.frame( man=c("base","lightthin", "intensthin","longrot", "shortrot", "rettree", "sfire", "fertfor","ceaseman","ccf"), 
+                  FPcase = c(0  ,6,                    7  , 8      ,      9    ,    10    ,   11  ,     12   ,    14    , 999) )
+
+
+#also create the correct expression for Scenario:
+scenarios = data.frame(sc   = c("hist","ssp126","ssp370"),
+                       FPsc = c("hist","SSP1-RCP2.6","SSP3-RCP7.0"))
+
+landcover_fractions_from_2025 <- read.table("../../3_analysis_ForestPaths_Exploratory_runs/notes/landcover_fractions_from_2025.txt",head=TRUE)
+forestcover_fractions_from_2025 <- read.table("../../3_analysis_ForestPaths_Exploratory_runs/notes/forest_cover_fractions_from_2025.txt",head=TRUE)
+
+#create plotting specs dataframe
+# Define vectors
+managementslist <- c("base","fertfor","lightthin","intensthin","longrot",
+                     "shortrot","rettree","ceaseman","sfire","ccf","ceaseman_cct","ceaseman_cct_distoff","divers")
+
+mancol <- c(1:8, "brown", "darkgreen", "purple","purple","magenta")
+manpch <- c(1, 2, 3, 3, 4, 4, 5, 5,5, 5, 5, 1,6)
+manlty <- manpch
+
+# Combine into a data frame
+man <- data.frame(
+  management = managementslist,
+  col = mancol[1:length(managementslist)],
+  pch = manpch[1:length(managementslist)],
+  lty = manlty[1:length(managementslist)],
+  stringsAsFactors = FALSE
+)
+
+
+```
+
+```{r ceaseman_cct_fut_MPI-ESM1-2-HR_ssp126_diston_document failed gridcells}
+
+#Some cells failed timed out, but only few, and interestingly all on the sam lat.
+#Unfinished gridcells found in the following runs:
+# run13 (4 unfinished)
+#lon.   lat
+21.25 42.25
+21.75 42.25
+22.25 42.25
+22.75 42.25
+
+# run15 (8 unfinished)
+22.75 42.75
+23.25 42.75
+23.75 42.75
+24.25 42.75
+24.75 42.75
+25.25 42.75
+25.75 42.75
+26.25 42.75
+
+# run16 (2 unfinished)
+2.75 43.25
+3.25 43.25
+
+# run17 (1 unfinished)
+26.25 43.25
+
+
+data_unfinished <- data.frame(
+  Lon = c(21.25, 21.75, 22.25, 22.75, 22.75, 23.25, 23.75, 24.25, 24.75, 25.25, 25.75, 26.25, 2.75, 3.25, 26.25),
+  Lat = c(42.25, 42.25, 42.25, 42.25, 42.75, 42.75, 42.75, 42.75, 42.75, 42.75, 42.75, 42.75, 43.25, 43.25, 43.25),
+  run_number = c(NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA)
+)
+
+
+gridlist <- read.table("../../3_analysis_ForestPaths_Exploratory_runs/european_applications/testrun/gridlist_final.txt")
+plot(gridlist$V1,gridlist$V2, main="unfinished Gridcells")
+
+points(data_unfinished$Lon,data_unfinished$Lat,col="red")
+
+```
+
+
+```{r ceaseman_cct_fut_MPI-ESM1-2-HR_ssp126_diston}
+
+management = "ceaseman_cct"
+scenario = "ssp126" #"ssp126"
+disturbance = "diston" # diston
+
+
+source.in_ceaseman_cct = defineSource(id= paste0(management,"_",scenario),
+              dir= paste0(base_dir,management,"_fut_MPI-ESM1-2-HR_",scenario,"_",disturbance,"/"),#,management,"_fut_MPI-ESM1-2-HR_",scenario,"_",disturbance,"_2025-04-07/"),
+             format = GUESS,
+             name = paste0(management,"_",scenario))
+
+
+#first visualisations for output:
+myData <- getField(source = source.in_ceaseman_cct,quant="cmass_forest")
+plotSpatial(myData,year=c(2025,2030,2050,2070,2100),layers = "Total",limit=c(0,22))
+
+
+
+
+base_dir_FP  <- "/Volumes/Anne's Backup/v13/"
+management = "ceaseman"
+scenario = "ssp126" #"ssp126"
+disturbance = "diston" # diston
+source.in_ceaseman = defineSource(id= paste0(management,"_",scenario),
+              dir= paste0(base_dir_FP,management,"_fut_MPI-ESM1-2-HR_",scenario,"_",disturbance,"/"),#,management,"_fut_MPI-ESM1-2-HR_",scenario,"_",disturbance,"_2025-04-07/"),
+             format = GUESS,
+             name = paste0(management,"_",scenario))
+
+
+#first visualisations for output:
+myData <- getField(source = source.in_ceaseman,quant="cmass_forest")
+plotSpatial(myData,year=c(2025,2030,2050,2070,2100),layers = "Total",limit=c(0,22))
+
+
+
+management = "ccf"
+scenario = "ssp126" #"ssp126"
+disturbance = "diston" # diston
+source.in_ccf = defineSource(id= paste0(management,"_",scenario),
+              dir= paste0(base_dir_FP,management,"_fut_MPI-ESM1-2-HR_",scenario,"_",disturbance,"/"),#,management,"_fut_MPI-ESM1-2-HR_",scenario,"_",disturbance,"_2025-04-07/"),
+             format = GUESS,
+             name = paste0(management,"_",scenario))
+
+
+#first visualisations for output:
+myData <- getField(source = source.in_ccf,quant="cmass_forest")
+plotSpatial(myData,year=c(2025,2030,2050,2070,2100),layers = "Total",limit=c(0,22))
+
+
+management = "rettree"
+scenario = "ssp126" #"ssp126"
+disturbance = "diston" # diston
+source.in_rettree = defineSource(id= paste0(management,"_",scenario),
+              dir= paste0(base_dir_FP,management,"_fut_MPI-ESM1-2-HR_",scenario,"_",disturbance,"/"),#,management,"_fut_MPI-ESM1-2-HR_",scenario,"_",disturbance,"_2025-04-07/"),
+             format = GUESS,
+             name = paste0(management,"_",scenario))
+
+
+#first visualisations for output:
+myData <- getField(source = source.in_rettree,quant="cmass_forest")
+plotSpatial(myData,year=c(2025,2030,2050,2070,2100),layers = "Total",limit=c(0,22))
+
+
+management = "base"
+scenario = "ssp126" #"ssp126"
+disturbance = "diston" # diston
+source.in_baseline = defineSource(id= paste0(management,"_",scenario),
+              dir= paste0(base_dir_FP,management,"_fut_MPI-ESM1-2-HR_",scenario,"_",disturbance,"/"),#,management,"_fut_MPI-ESM1-2-HR_",scenario,"_",disturbance,"_2025-04-07/"),
+             format = GUESS,
+             name = paste0(management,"_",scenario))
+
+
+#first visualisations for output:
+myData <- getField(source = source.in_baseline,quant="cmass_forest")
+plotSpatial(myData,year=c(2025,2030,2050,2070,2100),layers = "Total",limit=c(0,22))
+
+
+management = "sfire"
+scenario = "ssp126" #"ssp126"
+disturbance = "diston" # diston
+source.in_sfire = defineSource(id= paste0(management,"_",scenario),
+              dir= paste0(base_dir_FP,management,"_fut_MPI-ESM1-2-HR_",scenario,"_",disturbance,"/"),#,management,"_fut_MPI-ESM1-2-HR_",scenario,"_",disturbance,"_2025-04-07/"),
+             format = GUESS,
+             name = paste0(management,"_",scenario))
+
+
+#first visualisations for output:
+myData <- getField(source = source.in_sfire,quant="cmass_forest")
+plotSpatial(myData,year=c(2025,2030,2050,2070,2100),layers = "Total",limit=c(0,22))
+
+##gini:
+
+myData_source.in_ceaseman_cct <- calculate_gini(source_name = source.in_ceaseman_cct)
+myData.source.in_ceaseman <- calculate_gini(source_name = source.in_ceaseman)
+myData.source.in_rettree <- calculate_gini(source_name = source.in_rettree,management_name ="rettree")
+myData.source.in_ccf <- calculate_gini(source_name = source.in_ccf)
+myData.source.in_baseline <- calculate_gini(source_name = source.in_baseline)
+myData.source.sfire <- calculate_gini(source_name = source.in_sfire,management_name ="sfire")
+
+
+plotSpatial(myData_source.in_ceaseman_cct,year=c(2025,2030,2050,2070,2100),layers = "Forest_sum",limits=c(0,0.7))
+plotSpatial(myData.source.in_ceaseman,year=c(2025,2030,2050,2070,2100),layers = "Forest_sum",limits=c(0,0.7))
+plotSpatial(myData.source.in_rettree,year=c(2025,2030,2050,2070,2100),layers = "Forest_sum",limits=c(0,0.7))
+plotSpatial(myData.source.in_ccf,year=c(2025,2030,2050,2070,2100),layers = "Forest_sum",limits=c(0,0.7))
+plotSpatial(myData.source.in_baseline,year=c(2025,2030,2050,2070,2100),layers = "Forest_sum",limits=c(0,0.7))
+plotSpatial(myData.source.sfire,year=c(2025,2030,2050,2070,2100),layers = "Forest_sum",limits=c(0,0.7))
+
+```
+
+```{r for Milestone reports_ replicating Mart_Jans plot structure}
+# milestone report run with v13.
+# switched to v16 - after recalibration
+
+landcover_fractions =   read.table("../../3_analysis_ForestPaths_Exploratory_runs/landuse_change_forest_age/lu_inputfiles_noNF3/net_lu_HildaPucherMircaEurope.txt", head=TRUE)
+landcover_fractions <- landcover_fractions[which(landcover_fractions$Year>=2025),]# subset, landcover constent from 2025.
+
+
+###  ABSOLUTE" ###############
+#pool
+managementslist <- c("base","fertfor","lightthin", "intensthin","longrot", "shortrot","rettree" ,"ceaseman","sfire","ccf","ceaseman_cct","ceaseman_cct_distoff","divers")
+
+#for plotting:
+i=2
+scenariolist <- c("ssp126")
+countrylist = c("Sweden","Finland","Germany","Poland","France","Netherlands","Spain","Italy")
+extract_c=FALSE
+dist= "diston"
+
+if(extract_c){
+managementslist <- c("base","fertfor","lightthin","intensthin","longrot",
+                     "shortrot","rettree","sfire","ccf","divers")
+}else{
+  managementslist <- c("base","fertfor","lightthin","intensthin","longrot",
+                     "shortrot","rettree","ceaseman","sfire","ccf","ceaseman_cct","ceaseman_cct_distoff","divers")
+}
+
+if(extract_c){
+par(mfrow=c(2,4), mar=c(1,1,3,0), oma=c(3,4,1,0))
+  
+  for(country in countrylist){
+    for(management in managementslist){
+      
+      if(management == "ceaseman_cct_distoff"){
+        management = "ceaseman_cct"
+        dist = "distoff"
+      }else{
+        dist ="diston"
+      }
+      
+      if(management =="ceaseman_ccst"){
+    base_dir = "/Volumes/Anne's Backup/FORWARDS/"
+  }else{
+    base_dir = "/Volumes/Anne's Backup/ForestPaths/v16/"
+  }
+      for(scenario in scenariolist){
+        
+        if(dist == "distoff"){
+          folder_name <- paste0(base_dir,management, "_fut_MPI-ESM1-2-HR_",
+                                scenario, "_distoff")
+        }else{
+          folder_name <- paste0(base_dir,management, "_fut_MPI-ESM1-2-HR_",
+                                scenario, "_diston")
+        }
+        
+        #SSP3-RCP7.0_10_LPJ-GUESS.csv
+        #retrieve the source file location + add some metadata:
+        source.in = defineSource(id= paste0(management,"_",scenario),
+                                 dir= paste0(folder_name),
+                                 format = GUESS,
+                                 name = paste0(management,"_",scenario))
+        
+        
+        
+        myData <- getField(source = source.in, quant = "diam_cmass_wood")
+        myData@data$Total  <-  rowSums(myData@data[,4:dim(myData@data)[2]])
+        
+       
+        myData <- extract_country(myData, input_name = country, path_to_gridlist_with_country_names ="../../3_analysis_ForestPaths_Exploratory_runs/scripts/gridlist_final.txt_country_names_added" )
+        ###Calculate area-weighted mean:
+        # Add forest area
+        myData@data <- myData@data[landcover_fractions[,c("Lon","Lat","Year","FOREST")], on = .(Lon, Lat, Year)]
+        myData@data$GridcellArea_m2 <- GridcellArea_m2(myData@data$Lat,res=0.5)
+        myData@data$Forest_area <- myData@data$GridcellArea_m2 * myData@data$FOREST
+    
+         # compute mean across years for each Lon, Lat
+        myData_agg <- myData
+        myData_agg@data <- myData@data[, lapply(.SD, function(x) weighted.mean(x, w = Forest_area, na.rm = TRUE)), 
+                                                   by = .(Year), 
+                                                   .SDcols = "Total"]
+        
+        if(management == "base"){
+          base_agg <- myData_agg 
+        }
+        #myData_agg_GA <- GridcellArea_m2(myData_agg)
+        # for baseline on off: look at cmass, look at NBP
+        myData_agg@data$Total = myData_agg@data$Total - base_agg@data$Total
+        
+        
+        if(management =="base"){
+          plot(myData_agg@data$Year,myData_agg@data$Total,col=man[man$man == management, ]$col
+,type= "l", ylim=c( -0.5,1), lwd=2,
+               ylab=c("difference in Carbon in biomass, kgC/m2"),main=paste(country))
+        }else{
+          if(management=="base_off"){
+            lines(myData_agg@data$Year,myData_agg@data$Total,col=man[man$man == management, ]$col
+,lty= man[man$man == management, ]$lty)
+          }else{
+            lines(myData_agg@data$Year,myData_agg@data$Total,col=man[man$man == management, ]$col
+,lty= man[man$man == management, ]$lty)
+           
+          }
+          
+        }
+        
+      }
+      
+    }
+  }
+}else{
+    par(mfrow=c(1,1))
+    for(management in managementslist){
+      
+            if(management == "ceaseman_cct_distoff"){
+        management= "ceaseman_cct"
+        dist = "distoff"
+      }else{
+        dist ="diston"
+      }
+      
+      if(management =="ceaseman_csct"){
+    base_dir = "/Volumes/Anne's Backup/FORWARDS/"
+  }else{
+    base_dir =  "/Volumes/Anne's Backup/ForestPaths/v16/"
+  }
+      for(scenario in scenariolist){
+        
+        if(dist == "distoff"){
+          folder_name <- paste0(base_dir,management, "_fut_MPI-ESM1-2-HR_",
+                                scenario, "_distoff")
+        }else{
+          folder_name <- paste0(base_dir,management, "_fut_MPI-ESM1-2-HR_",
+                                scenario, "_diston")
+        }
+        #SSP3-RCP7.0_10_LPJ-GUESS.csv
+        #retrieve the source file location + add some metadata:
+        source.in = defineSource(id= paste0(management,"_",scenario),
+                                 dir= paste0(folder_name),
+                                 format = GUESS,
+                                 name = paste0(management,"_",scenario))
+        
+        
+        
+        myData <- getField(source = source.in, quant = "diam_cmass_wood")
+        myData@data$Total  <-  rowSums(myData@data[,4:dim(myData@data)[2]])
+        
+        
+        ###Calculate area-weighted mean:
+        # Add forest area
+        myData@data <- myData@data[landcover_fractions[,c("Lon","Lat","Year","FOREST")], on = .(Lon, Lat, Year)]
+        myData@data$GridcellArea_m2 <- GridcellArea_m2(myData@data$Lat,res=0.5)
+        myData@data$Forest_area <- myData@data$GridcellArea_m2 * myData@data$FOREST
+    
+        # compute mean across years for each Lon, Lat
+        myData_agg <- myData
+        myData_agg@data <- myData@data[, lapply(.SD, function(x) weighted.mean(x, w = Forest_area, na.rm = TRUE)), 
+                                                   by = .(Year), 
+                                                   .SDcols = "Total"]
+    
+        #myData_agg <- aggregateSpatial(myData,method="mean")
+            
+        
+      
+        #if(management == "base"){
+        #  base_agg <- myData_agg 
+        #}
+        #myData_agg_GA <- GridcellArea_m2(myData_agg)
+        # for baseline on off: look at cmass, look at NBP
+        #myData_agg@data$Total = myData_agg@data$Total - base_agg@data$Total
+        
+        
+        if(management =="base"){
+          plot(myData_agg@data$Year,myData_agg@data$Total,col=man[man$man == management, ]$col
+,type= "l", ylim=c( 0,8.5), lwd=2,
+               ylab=c("veg carbon in biomass, kgC/m2"),main=paste(scenario))
+        }else{
+          if(management=="base_off"){
+            lines(myData_agg@data$Year,myData_agg@data$Total,col=man[man$man == management, ]$col
+,lty= man[man$man == management, ]$lty)
+          }else{
+            lines(myData_agg@data$Year,myData_agg@data$Total,col=man[man$man == management, ]$col
+,lty= man[man$man == management, ]$lty)
+            
+          }
+          
+        }
+        
+      }
+    }
+}
+    
+#    legend(legend=c(managementslist), fill=c(2:length(managementslist)), "topleft",cex=0.8)
+   # plot.new()
+ # legend(legend=c(managementslist), fill = man$col, lty = man$pch, "bottomright",cex=0.8)
+
+if(extract_c){
+  mtext(outer=TRUE,side=2,"differene in vegetation biomass (kgC/m2)", line=2)
+  mtext(outer=TRUE,side=1,"Year",1.5)
+}else{
+  legend(legend=c(managementslist), fill = man$col, lty = man$pch, "bottomright",cex=0.6)
+   mtext(outer=TRUE,side=2,"vegetation biomass (kgC/m2)", line=2)
+}
+
+  
+    
+```
+
+
+
+```{r for Risk_analysis}
+
+v16 <- "/Volumes/Anne's Backup/ForestPaths/v16/"  
+base_dir <- v16
+source("../../3_analysis_ForestPaths_Exploratory_runs/scripts/helper_functions.R")
+management ="base"
+scenarios=c("ssp126","ssp370")
+
+landcover_fractions =   read.table("../../3_analysis_ForestPaths_Exploratory_runs/landuse_change_forest_age/lu_inputfiles_noNF3/net_lu_HildaPucherMircaEurope.txt", head=TRUE)
+landcover_fractions <- landcover_fractions[which(landcover_fractions$Year>=2025),]# subset, landcover constent from 2025.
+
+for(scenario in scenarios){
+#retrieve the source file location + add some metadata:
+  folder_name <- paste0(base_dir,management, "_fut_MPI-ESM1-2-HR_",
+                        scenario, "_diston")
+  source.in = defineSource(id= paste0(management,"_",scenario),
+                           dir= paste0(folder_name),
+                           format = GUESS,
+                           name = paste0(management,"_",scenario))
+  
+  
+    # 1. Get forest biomass (from cmass_wood_sts or diam_cmass_wood)
+    myData_cmass <- getField(source = source.in, quant = "cmass_wood_sts")
+
+    
+    # 2. Get biomass lost through disturbance
+    # at gridcell-level. To get Forest -only wind_losses: /forest fraction.
+    cmass_wood_lost <- getField(source = source.in, quant = "storm")
+    
+     # Add forest area
+     cmass_wood_lost@data <- cmass_wood_lost@data[landcover_fractions[,c("Lon","Lat","Year","FOREST")], on = .(Lon, Lat, Year)]
+     cmass_wood_lost@data$GridcellArea_m2 <- GridcellArea_m2(cmass_wood_lost@data$Lat, res = 0.5)
+     cmass_wood_lost@data$Forest_area <- cmass_wood_lost@data$GridcellArea_m2 * cmass_wood_lost@data$FOREST
+  
+    # what level are we for biomass and for disturbance losses? 
+    # I want the output to be on forest - area, not gridcell area, so per m2 forest.
+    cmass_wood_lost@data$Forest_Insect_damage <- cmass_wood_lost@data$InsDWC /  cmass_wood_lost@data$FOREST
+    cmass_wood_lost@data$Forest_Storm_damage  <- cmass_wood_lost@data$DamWoodC /  cmass_wood_lost@data$FOREST
+    
+    #merge forest biomass and biomass loss tables: 
+    ss <- cmass_wood_lost@data[ myData_cmass@data[,c("Forest_sum","Lat","Lon","Year")],  on = .(Lon, Lat, Year)]
+    ss$Forest_Insect_damage_frac <- ss$Forest_Insect_damage / ss$Forest_sum 
+    ss$Forest_Storm_damage_frac  <- ss$Forest_Storm_damage / ss$Forest_sum 
+    ss <- ss[which(ss$Year>2024),]
+    
+    #calculate the cumulative sum of Insect and Storm damage fractions for the timeperiods 2025-2050, 2050-2070, 2070-2100
+    
+    library(data.table)
+
+    # Define time period breaks; have the same period lengths: 
+    ss[, Year := fcase(
+      Year >= 2030 & Year <= 2050, as.numeric("2050"),
+      Year > 2051  & Year <= 2070, as.numeric("2070"),
+      Year > 2071  & Year <= 2090, as.numeric("2090")
+    )]
+    
+    # Cumulative sums by gridcell and period
+    cumsum_damage <- ss[
+      !is.na(Year),
+      .(
+        CumInsect = sum(Forest_Insect_damage_frac, na.rm = TRUE),
+        CumStorm  = sum(Forest_Storm_damage_frac,  na.rm = TRUE),
+        FOREST    = first(FOREST)
+      ),
+      by = .(Lon, Lat, Year)
+    ]
+    
+    cumsum_damage <- cumsum_damage[which(!is.infinite(cumsum_damage$CumStorm)),]
+    cmass_wood_lost@data <- cumsum_damage
+    plotSpatial(cmass_wood_lost, years=c(2050,2070,2090),layers="CumInsect", legend.title = "Insect damage fraction")
+    plotSpatial(cmass_wood_lost, years=c(2050,2070,2090),layers="CumStorm", legend.title = "storm damage fraction")
+    
+    
+    print(scenario)
+    print(summary(cumsum_damage))
+    print(quantile(cumsum_damage$CumStorm,0.75))
+    print(quantile(cumsum_damage$CumInsect,0.75))
+    if(scenario=="ssp126"){
+          write.csv(cumsum_damage, "../data/processed/ssp126_disturbance_risk.csv", row.names = FALSE)
+        }else{
+          write.csv(cumsum_damage, "../data/processed/ssp370_disturbance_risk.csv", row.names = FALSE)
+        }
+    
+}
+```
+
+```{r choose_regions}
+
+probharv_cluster <- read.table("/Users/annemarie/Documents/1_TreeMort/2_Analysis/3_analysis_ForestPaths_Exploratory_runs/Probabilistic_harvest/lpjg_inputfiles_extrapolate_fmapOnly6_041224/p_harvest_Conifer.txt",header = TRUE)
+probharv_cluster$cluster <- rowSums(probharv_cluster[,3:dim(probharv_cluster)[2]])
+
+plot(probharv_cluster$lon,probharv_cluster$lat,col =probharv_cluster$cluster)
+
+probharv_cluster <- read.table("/Users/annemarie/Documents/1_TreeMort/2_Analysis/3_analysis_ForestPaths_Exploratory_runs/Probabilistic_harvest/lpjg_inputfiles_extrapolate_fmapOnly6_041224/p_harvest_Broadleaf.txt",header = TRUE)
+probharv_cluster$cluster <- rowSums(probharv_cluster[,3:dim(probharv_cluster)[2]])
+
+plot(probharv_cluster$lon,probharv_cluster$lat,col =probharv_cluster$cluster)
+names(probharv_cluster)[1:2] <- c("Lon","Lat") # rename for better merginf later
+
+# choose gridlists:
+# some with dominant vegetation characteristic of that region? otherwise, if we do a gridcell of each vegetation /stand type, we would bias the results I think.
+# Cross the harvest clusters with dominant PFT maybe?
+
+# create groups by dominant stand types + harvest cluster, group Fagus and otherBL together. 
+stand_types  <-  read.table("/Users/annemarie/Documents/1_TreeMort/2_Analysis/3_analysis_ForestPaths_Exploratory_runs/landuse_change_forest_age/lu_inputfiles_noNF3_corrected/luforest_HildaPucherMircaEurope.txt",header = TRUE)
+
+# Land use constant, so can extract just one year:
+stand_types <- stand_types[which(stand_types$Year==2025),]
+# add Fagus to other BL,
+stand_types$otherBL <- stand_types$otherBL+stand_types$Fagus 
+stand_types$Fagus <- NULL
+
+#also remove Lariz and otherNL, they are not extensive anough and fractional cover is too low (eyeballing)
+stand_types$Larix <- NULL
+stand_types$otherNL <- NULL
+
+# Now we have Quercus, otherBL, Pinus, Picea clusters
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+# Reshape data to long format
+stand_types_long <- stand_types %>%
+  pivot_longer(cols = Picea:otherBL, names_to = "Genus", values_to = "Fractional_Cover")
+
+# Plot maps
+ggplot(stand_types_long, aes(x = Lon, y = Lat, fill = Fractional_Cover)) +
+  geom_tile() +
+  scale_fill_viridis_c(option = "plasma", name = "Fractional Cover") + # Color scale
+  facet_wrap(~Genus, ncol = 4) + # Arrange maps in a grid
+  coord_fixed() + # Ensure correct aspect ratio
+  labs(title = "Fractional Cover of Genera", x = "Longitude", y = "Latitude") +
+  theme_minimal()
+
+# Only keep the dominant stand type
+stand_types_long_subs <- stand_types_long %>% group_by(Lon,Lat,Year) %>% mutate(Max_Cover=max(Fractional_Cover))
+stand_types_long_subs <- stand_types_long_subs[which(stand_types_long_subs$Fractional_Cover == stand_types_long_subs$Max_Cover),]
+
+stand_types_long_subs <- as.data.table(stand_types_long_subs)
+probharv_cluster <- as.data.table(probharv_cluster)
+## overlay the two maps 
+harv_st_clusters <- stand_types_long_subs[probharv_cluster[,c("Lon","Lat","cluster")], on = .(Lon,Lat)]
+
+# seems I am working with a stand type map which does not fully overlao with the proharvest map, but that's no problem here. just omitting the NA rows:
+harv_st_clusters <- harv_st_clusters[which(!is.na(harv_st_clusters$Year)),]
+harv_st_clusters$NatForest <- NULL
+
+# Maybe preferentially use gridcells within a cluster that  have a fractional cover of a stand that is > 0.5.
+harv_st_clusters_subs <- harv_st_clusters[which(harv_st_clusters$Max_Cover > 0.45),]
+plot(harv_st_clusters_subs$Lon,harv_st_clusters_subs$Lat,col=harv_st_clusters_subs$cluster)
+
+# Manually rename the clusters of interest to numbers 1-7 to correspond to Susanna's clusters.
+#First, assign some number to avoid the annoying floating point comparison:
+cluster_key <- data.table(
+  cluster = unique(harv_st_clusters_subs$cluster),
+  cluster_id = seq_along(unique(harv_st_clusters_subs$cluster))
+)
+
+harv_st_clusters_subs[cluster_key, on = "cluster", cluster_id := i.cluster_id]
+plot(harv_st_clusters_subs$Lon,harv_st_clusters_subs$Lat,col=harv_st_clusters_subs$cluster_id)
+legend(legend=c(unique(harv_st_clusters_subs$cluster_id)),fill=unique(harv_st_clusters_subs$cluster_id),"bottomleft",cex=0.5)
+harv_st_clusters_subs$cluster_probharv <- as.numeric(0)
+
+#MANUALLY ASSIGN SUSANNAS CLUSTER NUMBERS:
+#harv_st_clusters_subs[which(harv_st_clusters_subs$cluster_id == 1) ,]$cluster_probharv <- 7.0
+#harv_st_clusters_subs[which(harv_st_clusters_subs$cluster_id == 1) ,]$cluster_probharv <- 7.0
+#skipping this..
+
+harv_st_clusters_subs[, Group := NA_character_]
+#harv_st_clusters_subs$Group <- NULL# as.character()
+
+#Group1: otherBL + probharv cluster 7:
+harv_st_clusters_subs[which(harv_st_clusters_subs$Genus == "otherBL" & harv_st_clusters_subs$cluster_id ==18 & harv_st_clusters_subs$Lon >= 20 & harv_st_clusters_subs$Lat <= 55),]$Group <- "EasternEurope"
+
+harv_st_clusters_subs[which(harv_st_clusters_subs$Genus == "otherBL" & harv_st_clusters_subs$cluster_id ==18 & harv_st_clusters_subs$Lon <= 20 & harv_st_clusters_subs$Lat >= 50),]$Group <- "CentralEuropeBL"
+
+
+#Group2: Pinus + probharv cluster 2:
+harv_st_clusters_subs[which( harv_st_clusters_subs$cluster_id == 25 &  harv_st_clusters_subs$Lon <= 20),]$Group   <- "SouthernSweden"
+
+
+#Group3: Quercus + probharv cluster 1:
+harv_st_clusters_subs[which((harv_st_clusters_subs$cluster_id == 25 |   harv_st_clusters_subs$cluster_id == 32 ) & harv_st_clusters_subs$Lon >= 20),]$Group  <- "BalticsSouthernFinland"
+#harv_st_clusters_subs$Lon >= 20 & harv_st_clusters_subs$Lon <= 0),]$Group  <- "Baltics"
+
+
+#Group4: Picea + probharv cluster 7:
+harv_st_clusters_subs[which(harv_st_clusters_subs$Genus == "Picea" & harv_st_clusters_subs$cluster_id == 18),]$Group    <- "CentralEuropeNL"
+
+
+#Group5: Picea + probharv cluster 3:
+harv_st_clusters_subs[which(harv_st_clusters_subs$Genus == "Pinus" & harv_st_clusters_subs$cluster_id == 31 & harv_st_clusters_subs$Lat >= 58),]$Group   <- "NorthernFinland" 
+
+#Group6: Picea + probharv cluster 3:
+harv_st_clusters_subs[which(harv_st_clusters_subs$Genus == "Pinus" & harv_st_clusters_subs$cluster_id == 23),]$Group   <- "Poland"
+
+
+harv_st_clusters_subs[which(harv_st_clusters_subs$Genus == "otherBL" & harv_st_clusters_subs$cluster_id == 1 & harv_st_clusters_subs$Lon <= 0),]$Group   <- "UKIr"
+
+harv_st_clusters_subs_groups <- harv_st_clusters_subs[which(!is.na(harv_st_clusters_subs$Group)),]
+
+plot(harv_st_clusters_subs$Lon, harv_st_clusters_subs$Lat, col="light grey" )
+
+points(harv_st_clusters_subs_groups[which(harv_st_clusters_subs_groups$Group =="CentralEuropeBL"),]$Lon, harv_st_clusters_subs_groups[which(harv_st_clusters_subs_groups$Group =="CentralEuropeBL"),]$Lat, col="magenta" ,pch=16)
+
+points(harv_st_clusters_subs_groups[which(harv_st_clusters_subs_groups$Group =="CentralEuropeNL"),]$Lon, harv_st_clusters_subs_groups[which(harv_st_clusters_subs_groups$Group =="CentralEuropeNL"),]$Lat, col="brown" ,pch=16)
+
+points(harv_st_clusters_subs_groups[which(harv_st_clusters_subs_groups$Group =="Poland"),]$Lon, harv_st_clusters_subs_groups[which(harv_st_clusters_subs_groups$Group =="Poland"),]$Lat, col="red" ,pch=16)
+
+points(harv_st_clusters_subs_groups[which(harv_st_clusters_subs_groups$Group =="NorthernFinland"),]$Lon, harv_st_clusters_subs_groups[which(harv_st_clusters_subs_groups$Group =="NorthernFinland"),]$Lat, col="green" ,pch=16)
+
+points(harv_st_clusters_subs_groups[which(harv_st_clusters_subs_groups$Group =="BalticsSouthernFinland"),]$Lon, harv_st_clusters_subs_groups[which(harv_st_clusters_subs_groups$Group =="BalticsSouthernFinland"),]$Lat, col="blue" ,pch=16)
+
+points(harv_st_clusters_subs_groups[which(harv_st_clusters_subs_groups$Group =="EasternEurope"),]$Lon, harv_st_clusters_subs_groups[which(harv_st_clusters_subs_groups$Group =="EasternEurope"),]$Lat, col="purple" ,pch=16)
+
+points(harv_st_clusters_subs_groups[which(harv_st_clusters_subs_groups$Group =="SouthernSweden"),]$Lon, harv_st_clusters_subs_groups[which(harv_st_clusters_subs_groups$Group =="SouthernSweden"),]$Lat, col="yellow" ,pch=16)
+
+points(harv_st_clusters_subs_groups[which(harv_st_clusters_subs_groups$Group =="UKIr"),]$Lon, harv_st_clusters_subs_groups[which(harv_st_clusters_subs_groups$Group =="UKIr"),]$Lat, col="dark grey" ,pch=16)
+
+#add colour to dataframe:
+colour_key <- data.table(
+  Group  = c("CentralEuropeBL", "CentralEuropeNL", "Poland", "NorthernFinland", 
+             "BalticsSouthernFinland", "EasternEurope", "SouthernSweden", "UKIr"),
+  colour = c("magenta", "brown", "red", "green", 
+             "blue", "purple", "yellow", "dark grey")
+)
+
+harv_st_clusters_subs[, colour := NA_character_]
+harv_st_clusters_subs[colour_key, on = "Group", colour := i.colour]
+
+legend("topleft", 
+       legend = colour_key$Group, 
+       col    = colour_key$colour, 
+       pch    = 16, 
+       bty    = "n")
+
+```
+
+```{r Management_impact_on_dist_cmass}
+
+#investigate the impact of forest management on disturbance (risk?):
+
+v16 <- "/Volumes/Anne's Backup/ForestPaths/v16/"  
+base_dir <- v16
+source("../../3_analysis_ForestPaths_Exploratory_runs/scripts/helper_functions.R")
+management ="intensthin"
+scenarios=c("ssp126","ssp370")
+
+landcover_fractions = read.table("../../3_analysis_ForestPaths_Exploratory_runs/landuse_change_forest_age/lu_inputfiles_noNF3/net_lu_HildaPucherMircaEurope.txt", head=TRUE)
+landcover_fractions <- landcover_fractions[which(landcover_fractions$Year>=2025),]# subset, landcover constent from 2025.
+
+#collect <- data.frame(harvest=NA,Cmass=NA,NBP=NA,dist=c("on","off"))
+
+
+pdf("cmass_dist_effect.pdf", width = 12, height = 6)
+
+managementslist <- c("base" , "lightthin","intensthin"   ,"longrot"     , "shortrot"      ,"rettree",      "ccf",  "ceaseman", "ceaseman_cct")         "ceaseman_cct_distoff"
+
+for( management in managementslist) {
+  for(scenario in scenarios){
+  
+
+  #retrieve the source file location + add some metadata:
+  folder_name_on <- paste0(base_dir,management, "_fut_MPI-ESM1-2-HR_",
+                        scenario, "_diston")
+  folder_name_off <- paste0(base_dir,management, "_fut_MPI-ESM1-2-HR_",
+                        scenario, "_distoff")
+  source.in_distoff = defineSource(id= paste0(management,"_",scenario),
+                           dir= paste0(folder_name_off),
+                           format = GUESS,
+                           name = paste0(management,"_",scenario))
+  
+  source.in_diston = defineSource(id= paste0(management,"_",scenario),
+                           dir= paste0(folder_name_on),
+                           format = GUESS,
+                           name = paste0(management,"_",scenario))
+  
+  
+  # 1. Get forest biomass (from cmass_wood_sts or diam_cmass_wood)
+  myData_cmass_distoff <- getField(source = source.in_distoff, quant = "cmass_wood_sts")
+  myData_cmass_diston <- getField(source = source.in_diston, quant = "cmass_wood_sts")
+  
+  collect <- myData_cmass_diston@data
+  collect <- collect[,c("Lon","Lat","Year")]
+  collect$cmass_diff <- myData_cmass_diston@data$Forest_sum -  myData_cmass_distoff@data$Forest_sum
+  #collect
+  
+  #calculate the cumulative sum cmass differences for timeperiods 2025-2050, 2050-2070, 2070-2100
+    #maybe I need this for plotting:
+    #collect <- collect[landcover_fractions[,c("Lon","Lat","Year","FOREST")], on = .(Lon, Lat, Year)]
+    
+  
+
+    # Define time period breaks; have the same period lengths: 
+    collect[, Year := fcase(
+      Year >= 2030 & Year <= 2050, as.numeric("2050"),
+      Year > 2051  & Year <= 2070, as.numeric("2070"),
+      Year > 2071  & Year <= 2090, as.numeric("2090")
+    )]
+    
+    # Cumulative sums by gridcell and period
+    collect_cumsum <- collect[
+      !is.na(Year),
+      .(
+        Cum_cmass_diff = mean(cmass_diff, na.rm = TRUE)
+        #FOREST    = first(FOREST)
+      ),
+      by = .(Lon, Lat, Year)
+    ]
+    
+    #merge with the regions /(groups):
+    
+    collect_cumsum_merged <- collect_cumsum[harv_st_clusters_subs_groups[,c("Lon","Lat","Group","colour")], on = .(Lon, Lat)]
+    collect_cumsum <- collect_cumsum[which(!is.infinite(collect_cumsum$cmass_diff)),]
+    cmass_wood_lost@data <- cumsum_damage
+    plotSpatial(cmass_wood_lost, years=c(2050,2070,2090),layers="Cum_cmass_diff", legend.title = "cmas diff")
+    
+    
+    group_colours <- unique(collect_cumsum_merged[, .(Group, colour)])
+    group_colours <- setNames(group_colours$colour, group_colours$Group)
+
+    
+   #plots the mean cumulative difference across all gridcells:
+    p <- ggplot(collect_cumsum_merged, aes(x = Group, y = Cum_cmass_diff, fill = Group)) +
+    geom_bar(stat = "summary", fun = "mean") +
+    stat_summary(fun.data = mean_se, fun.args = list(mult = 1), 
+               geom = "errorbar", width = 0.4, colour = "black", alpha = 0.9) +
+  
+    scale_fill_manual(values = group_colours) +
+    facet_wrap(~ Year, ncol = 3) +
+    labs(x = NULL, y = "diston-distoff: 20 year mean (mean across region) [kgC/m2]", fill = "Group") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          legend.position = "bottom")
+    p <- p + labs(title = paste(scenario, management))
+    print(p)
+    
+    }
+}
+  
+dev.off()
+
+
+
+#plot by region:
+
+# First collect all data
+all_data <- list()
+
+#collect data:
+for( management in managementslist) {
+  for(scenario in scenarios){
+  
+
+  #retrieve the source file location + add some metadata:
+  folder_name_on <- paste0(base_dir,management, "_fut_MPI-ESM1-2-HR_",
+                        scenario, "_diston")
+  folder_name_off <- paste0(base_dir,management, "_fut_MPI-ESM1-2-HR_",
+                        scenario, "_distoff")
+  source.in_distoff = defineSource(id= paste0(management,"_",scenario),
+                           dir= paste0(folder_name_off),
+                           format = GUESS,
+                           name = paste0(management,"_",scenario))
+  
+  source.in_diston = defineSource(id= paste0(management,"_",scenario),
+                           dir= paste0(folder_name_on),
+                           format = GUESS,
+                           name = paste0(management,"_",scenario))
+  
+  
+  # 1. Get forest biomass (from cmass_wood_sts or diam_cmass_wood)
+  myData_cmass_distoff <- getField(source = source.in_distoff, quant = "cmass_wood_sts")
+  myData_cmass_diston <- getField(source = source.in_diston, quant = "cmass_wood_sts")
+  
+  collect <- myData_cmass_diston@data
+  collect <- collect[,c("Lon","Lat","Year")]
+  collect$cmass_diff <- myData_cmass_diston@data$Forest_sum -  myData_cmass_distoff@data$Forest_sum
+  #collect
+  
+  #calculate the cumulative sum cmass differences for timeperiods 2025-2050, 2050-2070, 2070-2100
+    #maybe I need this for plotting:
+    #collect <- collect[landcover_fractions[,c("Lon","Lat","Year","FOREST")], on = .(Lon, Lat, Year)]
+    
+  
+
+    # Define time period breaks; have the same period lengths: 
+    collect[, Year := fcase(
+      Year >= 2030 & Year <= 2050, as.numeric("2050"),
+      Year > 2051  & Year <= 2070, as.numeric("2070"),
+      Year > 2071  & Year <= 2090, as.numeric("2090")
+    )]
+    
+    # Cumulative sums by gridcell and period
+    collect_cumsum <- collect[
+      !is.na(Year),
+      .(
+        Cum_cmass_diff = mean(cmass_diff, na.rm = TRUE)
+        #FOREST    = first(FOREST)
+      ),
+      by = .(Lon, Lat, Year)
+    ]
+    
+    #merge with the regions /(groups):
+    
+    collect_cumsum_merged <- collect_cumsum[harv_st_clusters_subs_groups[,c("Lon","Lat","Group","colour")], on = .(Lon, Lat)]
+    
+    # then tag it with the loop variables:
+    collect_cumsum_merged[, scenario   := scenario]
+    collect_cumsum_merged[, management := management]
+    
+    all_data[[paste(scenario, management, sep = "_")]] <- copy(collect_cumsum_merged)
+  }
+}
+
+all_data_dt <- rbindlist(all_data)
+
+
+
+pdf("cmass_dist_effect_byregion.pdf", width = 12, height = 6)
+
+for(sc in scenarios){
+  for(grp in unique(all_data_dt$Group)){
+    
+    plot_data <- all_data_dt[scenario == sc & Group == grp]
+    
+    mgmt_colours <- setNames(man$col, man$management)
+
+    p <- ggplot(plot_data, aes(x = management, y = Cum_cmass_diff, fill = management)) +
+      geom_bar(stat = "summary", fun = "mean") +
+      stat_summary(fun.data = mean_se, fun.args = list(mult = 1), 
+               geom = "errorbar", width = 0.4, colour = "black", alpha = 0.9) +
+  
+      scale_fill_manual(values = mgmt_colours) +
+      facet_wrap(~ Year, ncol = 3) +
+      labs(x = "Management", 
+           y     = "cmass difference (diston - distoff), 20 year mean across region [KgC/m2]",
+           fill  = "Management",
+           title = paste(grp, sc)) +
+      theme_bw() +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1),
+            legend.position = "bottom")
+    print(p)
+  }
+}
+
+dev.off()
+
+
+
+```
+
+```{r Management_impact_on_dist_NBP}
+
+#investigate the impact of forest management on disturbance (risk?):
+
+v16 <- "/Volumes/Anne's Backup/ForestPaths/v16/"  
+base_dir <- v16
+source("../../3_analysis_ForestPaths_Exploratory_runs/scripts/helper_functions.R")
+management ="intensthin"
+scenarios=c("ssp126","ssp370")
+
+pdf("nbp_dist_effect.pdf", width = 12, height = 6)
+managementslist <- c("base" , "lightthin","intensthin"   ,"longrot"     , "shortrot"      ,"rettree",      "ccf",  "ceaseman"   )#                "ceaseman_cct"         "ceaseman_cct_distoff"
+
+for( management in managementslist) {
+  for(scenario in scenarios){
+  
+  #retrieve the source file location + add some metadata:
+  folder_name_on <- paste0(base_dir,management, "_fut_MPI-ESM1-2-HR_",
+                        scenario, "_diston")
+  folder_name_off <- paste0(base_dir,management, "_fut_MPI-ESM1-2-HR_",
+                        scenario, "_distoff")
+  source.in_distoff = defineSource(id= paste0(management,"_",scenario),
+                           dir= paste0(folder_name_off),
+                           format = GUESS,
+                           name = paste0(management,"_",scenario))
+  
+  source.in_diston = defineSource(id= paste0(management,"_",scenario),
+                           dir= paste0(folder_name_on),
+                           format = GUESS,
+                           name = paste0(management,"_",scenario))
+  
+  
+  # 1. Get forest biomass (from cmass_wood_sts or diam_cmass_wood)
+  myData_cmass_distoff <- getField(source = source.in_distoff, quant = "cflux_forest")
+  myData_cmass_distoff@data$NBP <- myData_cmass_distoff@data$NEE - myData_cmass_distoff@data$LU_ch
+  myData_cmass_diston <- getField(source = source.in_diston, quant = "cflux_forest")
+  myData_cmass_diston@data$NBP <- myData_cmass_diston@data$NEE - myData_cmass_diston@data$LU_ch
+  
+  
+  collect <- myData_cmass_diston@data
+  collect <- collect[,c("Lon","Lat","Year")]
+  collect$NBP_diff <- myData_cmass_diston@data$NBP -  myData_cmass_distoff@data$NBP
+  
+
+    myData_cmass_diston@data <- myData_cmass_diston@data[landcover_fractions[,c("Lon","Lat","Year","FOREST")], on = .(Lon, Lat, Year)]
+    myData_cmass_diston@data$NBP_diff <-  myData_cmass_diston@data$NBP_diff /myData_cmass_diston@data$FOREST
+
+  
+
+    # Define time period breaks; have the same period lengths: 
+    collect[, Year := fcase(
+      Year >= 2030 & Year <= 2050, as.numeric("2050"),
+      Year > 2051  & Year <= 2070, as.numeric("2070"),
+      Year > 2071  & Year <= 2090, as.numeric("2090")
+    )]
+    
+    # Cumulative sums by gridcell and period
+    collect_cumsum <- collect[
+      !is.na(Year),
+      .(
+        Cum_NBP_diff = mean(NBP_diff, na.rm = TRUE)
+        #FOREST    = first(FOREST)
+      ),
+      by = .(Lon, Lat, Year)
+    ]
+    
+    #merge with the regions /(groups):
+    
+    collect_cumsum_merged <- collect_cumsum[harv_st_clusters_subs_groups[,c("Lon","Lat","Group","colour")], on = .(Lon, Lat)]
+    collect_cumsum <- collect_cumsum[which(!is.infinite(collect_cumsum$NBP_diff)),]
+    #cmass_wood_lost@data <- cumsum_damage
+    #plotSpatial(cmass_wood_lost, years=c(2050,2070,2090),layers="Cum_cmass_diff", legend.title = "cmas diff")
+    
+    
+    group_colours <- unique(collect_cumsum_merged[, .(Group, colour)])
+    group_colours <- setNames(group_colours$colour, group_colours$Group)
+
+   #plots the mean cumulative difference across all gridcells:
+    p <- ggplot(collect_cumsum_merged, aes(x = Group, y = Cum_NBP_diff, fill = Group)) +
+    geom_bar(stat = "summary", fun = "mean") +
+    stat_summary(fun.data = mean_se, fun.args = list(mult = 1), 
+         geom = "errorbar", width = 0.4, colour = "black", alpha = 0.9) +
+  
+    scale_fill_manual(values = group_colours) +
+    facet_wrap(~ Year, ncol = 3) +
+    labs(x = NULL, y = "NBP difference (diston - distoff), 20 year mean across region [KgC/m2]", fill = "Group") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          legend.position = "bottom")
+    p <- p + labs(title = paste(scenario, management))
+    print(p)
+    
+    }
+}
+  
+dev.off()
+
+
+
+#plot by region:
+
+# First collect all data
+all_data <- list()
+
+#collect data:
+for( management in managementslist) {
+  for(scenario in scenarios){
+  
+#retrieve the source file location + add some metadata:
+  folder_name_on <- paste0(base_dir,management, "_fut_MPI-ESM1-2-HR_",
+                        scenario, "_diston")
+  folder_name_off <- paste0(base_dir,management, "_fut_MPI-ESM1-2-HR_",
+                        scenario, "_distoff")
+  source.in_distoff = defineSource(id= paste0(management,"_",scenario),
+                           dir= paste0(folder_name_off),
+                           format = GUESS,
+                           name = paste0(management,"_",scenario))
+  
+  source.in_diston = defineSource(id= paste0(management,"_",scenario),
+                           dir= paste0(folder_name_on),
+                           format = GUESS,
+                           name = paste0(management,"_",scenario))
+  
+  
+  # 1. Get forest biomass (from cmass_wood_sts or diam_cmass_wood)
+  myData_cmass_distoff <- getField(source = source.in_distoff, quant = "cflux_forest")
+  myData_cmass_distoff@data$NBP <- myData_cmass_distoff@data$NEE - myData_cmass_distoff@data$LU_ch
+  myData_cmass_diston <- getField(source = source.in_diston, quant = "cflux_forest")
+  myData_cmass_diston@data$NBP <- myData_cmass_diston@data$NEE - myData_cmass_diston@data$LU_ch
+  
+  
+  collect <- myData_cmass_diston@data
+  collect <- collect[,c("Lon","Lat","Year")]
+  collect$NBP_diff <- myData_cmass_diston@data$NBP -  myData_cmass_distoff@data$NBP
+  
+  #calculate the MEAN cmass differences for timeperiods 2025-2050, 2050-2070, 2070-2100
+  #FIRST, get to per forest area:
+    myData_cmass_diston@data <- myData_cmass_diston@data[landcover_fractions[,c("Lon","Lat","Year","FOREST")], on = .(Lon, Lat, Year)]
+    myData_cmass_diston@data$NBP <-  myData_cmass_diston@data$NBP /myData_cmass_diston@data$FOREST
+
+    # Define time period breaks; have the same period lengths: 
+    collect[, Year := fcase(
+      Year >= 2030 & Year <= 2050, as.numeric("2050"),
+      Year > 2051  & Year <= 2070, as.numeric("2070"),
+      Year > 2071  & Year <= 2090, as.numeric("2090")
+    )]
+    
+    # Cumulative sums by gridcell and period
+    collect_cumsum <- collect[
+      !is.na(Year),
+      .(
+        Cum_NBP_diff = mean(NBP_diff, na.rm = TRUE)
+        #FOREST    = first(FOREST)
+      ),
+      by = .(Lon, Lat, Year)
+    ]
+    
+    #merge with the regions /(groups):
+    
+    collect_cumsum_merged <- collect_cumsum[harv_st_clusters_subs_groups[,c("Lon","Lat","Group","colour")], on = .(Lon, Lat)]
+    
+    
+    # then tag it with the loop variables:
+    collect_cumsum_merged[, scenario   := scenario]
+    collect_cumsum_merged[, management := management]
+    
+    all_data[[paste(scenario, management, sep = "_")]] <- copy(collect_cumsum_merged)
+  }
+}
+
+all_data_dt <- rbindlist(all_data)
+
+
+
+pdf("NBP_dist_effect_byregion.pdf", width = 12, height = 6)
+
+for(sc in scenarios){
+  for(grp in unique(all_data_dt$Group)){
+    
+    plot_data <- all_data_dt[scenario == sc & Group == grp]
+    
+    mgmt_colours <- setNames(man$col, man$management)
+
+    p <- ggplot(plot_data, aes(x = management, y = Cum_NBP_diff, fill = management)) +
+      geom_bar(stat = "summary", fun = "mean") +
+       stat_summary(fun.data = mean_se, fun.args = list(mult = 1), 
+         geom = "errorbar", width = 0.4, colour = "black", alpha = 0.9) +
+  
+      scale_fill_manual(values = mgmt_colours) +
+      facet_wrap(~ Year, ncol = 3) +
+      labs(x = "Management", 
+           y     = "NBP difference (diston - distoff), 20 year mean across region [KgC/m2]",
+           fill  = "Management",
+           title = paste(grp, sc)) +
+      theme_bw() +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1),
+            legend.position = "bottom")
+    print(p)
+  }
+}
+
+dev.off()
+
+
+
+```
+
+```{r Management_impact_on_dist_harvest}
+
+#investigate the impact of forest management on disturbance (risk?):
+
+v16 <- "/Volumes/Anne's Backup/ForestPaths/v16/"  
+base_dir <- v16
+source("../../3_analysis_ForestPaths_Exploratory_runs/scripts/helper_functions.R")
+management ="intensthin"
+scenarios=c("ssp126","ssp370")
+
+pdf("nbp_dist_effect.pdf", width = 12, height = 6)
+managementslist <- c("base" , "lightthin","intensthin"   ,"longrot"     , "shortrot"      ,"rettree",      "ccf",  "ceaseman"   )#                "ceaseman_cct"         "ceaseman_cct_distoff"
+
+for( management in managementslist) {
+  for(scenario in scenarios){
+  
+  #retrieve the source file location + add some metadata:
+  folder_name_on <- paste0(base_dir,management, "_fut_MPI-ESM1-2-HR_",
+                        scenario, "_diston")
+  folder_name_off <- paste0(base_dir,management, "_fut_MPI-ESM1-2-HR_",
+                        scenario, "_distoff")
+  source.in_distoff = defineSource(id= paste0(management,"_",scenario),
+                           dir= paste0(folder_name_off),
+                           format = GUESS,
+                           name = paste0(management,"_",scenario))
+  
+  source.in_diston = defineSource(id= paste0(management,"_",scenario),
+                           dir= paste0(folder_name_on),
+                           format = GUESS,
+                           name = paste0(management,"_",scenario))
+  
+  
+  # 1. Get forest biomass (from cmass_wood_sts or diam_cmass_wood)
+  myData_harv_thin_distoff <- getField(source = source.in_distoff, quant = "cmass_wood_harv_sts")
+  #myData_harv_thin_distoff@data$Total <- rowSums(myData_harv_thin_distoff@data[,c(4:19)])
+  #myData_harv_cct_distoff <- getField(source = source.in_distoff, quant = "closs_harv_ccut")
+  #myData_harv_cct_distoff@data$Total <- rowSums(myData_harv_cct_distoff@data[,c(4:19)])
+  #myData_harv_thin_distoff@data$TotHarv <- myData_harv_thin_distoff@data$Total +  myData_harv_cct_distoff@data$Total 
+  
+  myData_harv_thin_diston <- getField(source = source.in_diston, quant = "cmass_wood_harv_sts")
+  #myData_harv_thin_diston@data$Total <- rowSums(myData_harv_thin_diston@data[,c(4:19)])
+  #myData_harv_cct_diston <- getField(source = source.in_diston, quant = "closs_harv_ccut")
+  #myData_harv_cct_diston@data$Total <- rowSums(myData_harv_cct_diston@data[,c(4:19)])
+  #myData_harv_thin_diston@data$TotHarv <- myData_harv_thin_diston@data$Total +  myData_harv_cct_diston@data$Total 
+  
+  collect <- myData_cmass_diston@data
+  collect <- collect[,c("Lon","Lat","Year")]
+  collect$TotHarv_diff <- myData_harv_thin_diston@data$Forest_sum -  myData_harv_thin_distoff@data$Forest_sum
+
+    # Define time period breaks; have the same period lengths: 
+    collect[, Year := fcase(
+      Year >= 2030 & Year <= 2050, as.numeric("2050"),
+      Year > 2051  & Year <= 2070, as.numeric("2070"),
+      Year > 2071  & Year <= 2090, as.numeric("2090")
+    )]
+    
+    # Cumulative sums by gridcell and period
+    collect_cumsum <- collect[
+      !is.na(Year),
+      .(
+        Cum_TotHarv_diff = mean(TotHarv_diff, na.rm = TRUE)
+        #FOREST    = first(FOREST)
+      ),
+      by = .(Lon, Lat, Year)
+    ]
+    
+    #merge with the regions /(groups):
+    
+    collect_cumsum_merged <- collect_cumsum[harv_st_clusters_subs_groups[,c("Lon","Lat","Group","colour")], on = .(Lon, Lat)]
+    
+    myData_harv_cct_diston@data <- collect_cumsum
+    plotSpatial(myData_harv_cct_diston,layer="Cum_TotHarv_diff")
+    
+    group_colours <- unique(collect_cumsum_merged[, .(Group, colour)])
+    group_colours <- setNames(group_colours$colour, group_colours$Group)
+
+   #plots the mean cumulative difference across all gridcells:
+    p <- ggplot(collect_cumsum_merged, aes(x = Group, y = Cum_TotHarv_diff, fill = Group)) +
+    geom_bar(stat = "summary", fun = "mean") +
+      stat_summary(fun.data = mean_se, fun.args = list(mult = 1), 
+         geom = "errorbar", width = 0.4, colour = "black", alpha = 0.9) +
+  
+    scale_fill_manual(values = group_colours) +
+    facet_wrap(~ Year, ncol = 3) +
+    labs(x = NULL, y = "harvest difference (diston - distoff), 20 year mean across region [KgC/m2]", fill = "Group") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          legend.position = "bottom")
+    p <- p + labs(title = paste(scenario, management))
+    print(p)
+    
+    }
+}
+  
+dev.off()
+
+
+
+#plot by region:
+
+# First collect all data
+all_data <- list()
+
+#collect data:
+for( management in managementslist) {
+  for(scenario in scenarios){
+  #retrieve the source file location + add some metadata:
+  folder_name_on <- paste0(base_dir,management, "_fut_MPI-ESM1-2-HR_",
+                        scenario, "_diston")
+  folder_name_off <- paste0(base_dir,management, "_fut_MPI-ESM1-2-HR_",
+                        scenario, "_distoff")
+  source.in_distoff = defineSource(id= paste0(management,"_",scenario),
+                           dir= paste0(folder_name_off),
+                           format = GUESS,
+                           name = paste0(management,"_",scenario))
+  
+  source.in_diston = defineSource(id= paste0(management,"_",scenario),
+                           dir= paste0(folder_name_on),
+                           format = GUESS,
+                           name = paste0(management,"_",scenario))
+  
+  
+  # 1. Get forest biomass (from cmass_wood_sts or diam_cmass_wood)
+  myData_harv_thin_distoff <- getField(source = source.in_distoff, quant = "cmass_wood_harv_sts")
+  #myData_harv_thin_distoff@data$Total <- rowSums(myData_harv_thin_distoff@data[,c(4:19)])
+  #myData_harv_cct_distoff <- getField(source = source.in_distoff, quant = "closs_harv_ccut")
+  #myData_harv_cct_distoff@data$Total <- rowSums(myData_harv_cct_distoff@data[,c(4:19)])
+  #myData_harv_thin_distoff@data$TotHarv <- myData_harv_thin_distoff@data$Total +  myData_harv_cct_distoff@data$Total 
+  
+  myData_harv_thin_diston <- getField(source = source.in_diston, quant = "cmass_wood_harv_sts")
+  #myData_harv_thin_diston@data$Total <- rowSums(myData_harv_thin_diston@data[,c(4:19)])
+  #myData_harv_cct_diston <- getField(source = source.in_diston, quant = "closs_harv_ccut")
+  #myData_harv_cct_diston@data$Total <- rowSums(myData_harv_cct_diston@data[,c(4:19)])
+  #myData_harv_thin_diston@data$TotHarv <- myData_harv_thin_diston@data$Total +  myData_harv_cct_diston@data$Total 
+  
+  collect <- myData_cmass_diston@data
+  collect <- collect[,c("Lon","Lat","Year")]
+  collect$TotHarv_diff <- myData_harv_thin_diston@data$Forest_sum -  myData_harv_thin_distoff@data$Forest_sum
+
+    # Define time period breaks; have the same period lengths: 
+    collect[, Year := fcase(
+      Year >= 2030 & Year <= 2050, as.numeric("2050"),
+      Year > 2051  & Year <= 2070, as.numeric("2070"),
+      Year > 2071  & Year <= 2090, as.numeric("2090")
+    )]
+    
+    # Cumulative sums by gridcell and period
+    collect_cumsum <- collect[
+      !is.na(Year),
+      .(
+        Cum_TotHarv_diff = mean(TotHarv_diff, na.rm = TRUE)
+        #FOREST    = first(FOREST)
+      ),
+      by = .(Lon, Lat, Year)
+    ]
+    
+    #merge with the regions /(groups):
+    
+    collect_cumsum_merged <- collect_cumsum[harv_st_clusters_subs_groups[,c("Lon","Lat","Group","colour")], on = .(Lon, Lat)]
+    
+    # then tag it with the loop variables:
+    collect_cumsum_merged[, scenario   := scenario]
+    collect_cumsum_merged[, management := management]
+    
+    all_data[[paste(scenario, management, sep = "_")]] <- copy(collect_cumsum_merged)
+  }
+}
+
+all_data_dt <- rbindlist(all_data)
+
+
+pdf("harv_dist_effect_byregion.pdf", width = 12, height = 6)
+
+for(sc in scenarios){
+  for(grp in unique(all_data_dt$Group)){
+    
+    plot_data <- all_data_dt[scenario == sc & Group == grp]
+    
+    mgmt_colours <- setNames(man$col, man$management)
+
+    p <- ggplot(plot_data, aes(x = management, y = Cum_TotHarv_diff, fill = management)) +
+      geom_bar(stat = "summary", fun = "mean") +
+       stat_summary(fun.data = mean_se, fun.args = list(mult = 1), 
+         geom = "errorbar", width = 0.4, colour = "black", alpha = 0.9) +
+      scale_fill_manual(values = mgmt_colours) +
+      facet_wrap(~ Year, ncol = 3) +
+      labs(x = "Management", 
+           y     = "harvest difference (diston - distoff), 20 year mean across region [KgC/m2]",
+           fill  = "Management",
+           title = paste(grp, sc)) +
+      theme_bw() +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1),
+            legend.position = "bottom")
+    print(p)
+  }
+}
+
+dev.off()
+
+
+
+pdf("harv_dist_effect_byregion_boxplot.pdf", width = 12, height = 6)
+
+for(sc in scenarios){
+  for(grp in unique(all_data_dt$Group)){
+    
+    plot_data <- all_data_dt[scenario == sc & Group == grp]
+    
+    mgmt_colours <- setNames(man$col, man$management)
+
+#boxplot: 
+p <- ggplot(plot_data, aes(x = management, y = Cum_TotHarv_diff, fill = management)) +
+  geom_boxplot() +
+  scale_fill_manual(values = mgmt_colours) +
+    
+  facet_wrap(~ Year, ncol = 3) +
+  labs(x = "Management", 
+       y     = "harvest difference (diston - distoff), 20 year mean across region [KgC/m2]",
+       fill  = "Management",
+       title = paste(grp, sc)) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "bottom")
+print(p)
+  }
+}
+
+dev.off()
+
+```
+
+

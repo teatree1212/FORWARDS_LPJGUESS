@@ -43,7 +43,7 @@ forestcover_fractions_from_2025 <- read.table("../../3_analysis_ForestPaths_Expl
 #create plotting specs dataframe
 # Define vectors
 managementslist <- c("base","fertfor","lightthin","intensthin","longrot",
-                     "shortrot","rettree","ceaseman","sfire","ccf","ceaseman_cct","ceaseman_cct_distoff","divers")
+                     "shortrot","rettree","ceaseman","sfire","ccf","ceaseman_cct","ceaseman_cct_distoff","divers","ccf_divers")
 
 mancol <- c(1:8, "brown", "darkgreen", "purple","purple","magenta")
 manpch <- c(1, 2, 3, 3, 4, 4, 5, 5,5, 5, 5, 1,6)
@@ -55,6 +55,32 @@ man <- data.frame(
   col = mancol[1:length(managementslist)],
   pch = manpch[1:length(managementslist)],
   lty = manlty[1:length(managementslist)],
+  stringsAsFactors = FALSE
+)
+
+# Management scenarios (excluding fertfor, ceaseman, ceaseman_cct)
+managements_list <- c("base", "lightthin", "intensthin", "longrot",
+                      "shortrot", "rettree", "sfire", "ccf", "divers","ceaseman", "ceaseman_cct", "ccf_divers","fertfor")#,"ccf")#
+managementslist =  managements_list
+man <- management_df <- data.frame(
+  management = managements_list,
+  col = c(
+    "black",    # base
+    "#66BB6A",  # lightthin    — medium green   } thinning pair
+    "#1B5E20",  # intensthin   — dark green     }
+    "#64B5F6",  # longrot      — light blue     } rotation pair
+    "#0D47A1",  # shortrot     — dark blue      }
+    "#7030A0",  # rettree      — purple
+    "#973735",  # sfire        — dark red
+    "#FBA918",  # ccf          — amber          } ccf pair
+    "#00897B",  # divers       — teal
+    "#3E4FC2",  # ceaseman     — indigo         } ceaseman pair
+    "#1A237E",  # ceaseman_cct — dark navy      }
+    "#E65100",  # ccf_divers   — deep orange    }
+    "grey"      # fertilise forest
+  ),
+  pch = c(1, 3, 3, 4, 4, 5, 7, 8, 15, 16, 17, 18,1),
+  lty = c(1, 3, 3, 4, 4, 5, 2, 6,  2,  5,  5,  6,1),
   stringsAsFactors = FALSE
 )
 
@@ -510,6 +536,9 @@ for(scenario in scenarios){
 }
 ```
 
+
+
+
 ```{r choose_regions}
 
 probharv_cluster <- read.table("/Users/annemarie/Documents/1_TreeMort/2_Analysis/3_analysis_ForestPaths_Exploratory_runs/Probabilistic_harvest/lpjg_inputfiles_extrapolate_fmapOnly6_041224/p_harvest_Conifer.txt",header = TRUE)
@@ -652,14 +681,20 @@ colour_key <- data.table(
              "blue", "purple", "yellow", "dark grey")
 )
 
-harv_st_clusters_subs[, colour := NA_character_]
-harv_st_clusters_subs[colour_key, on = "Group", colour := i.colour]
+harv_st_clusters_subs_groups[, colour := NA_character_]
+harv_st_clusters_subs_groups[colour_key, on = "Group", colour := i.colour]
+
+
+mtext(side=1, "Longitude",line=2)
+mtext(side=2, "Latitude",line=2)
 
 legend("topleft", 
        legend = colour_key$Group, 
        col    = colour_key$colour, 
        pch    = 16, 
-       bty    = "n")
+       bty    = "n",
+       cex=0.6)
+
 
 ```
 
@@ -672,16 +707,19 @@ base_dir <- v16
 source("../../3_analysis_ForestPaths_Exploratory_runs/scripts/helper_functions.R")
 management ="intensthin"
 scenarios=c("ssp126","ssp370")
+outdir <- "/Users/annemarie/Documents/1_TreeMort/2_Analysis/3_analysis_FORWARDS_restoration_scenarios/Disturbance_paper/Figures/"
+
+# years for comparison:
+earliest_period  <- c(2025,2050)
+mid_period       <- c(2051,2070)
+late_period      <- c(2071,2100)
 
 landcover_fractions = read.table("../../3_analysis_ForestPaths_Exploratory_runs/landuse_change_forest_age/lu_inputfiles_noNF3/net_lu_HildaPucherMircaEurope.txt", head=TRUE)
 landcover_fractions <- landcover_fractions[which(landcover_fractions$Year>=2025),]# subset, landcover constent from 2025.
 
-#collect <- data.frame(harvest=NA,Cmass=NA,NBP=NA,dist=c("on","off"))
+pdf(paste0(outdir,"cmass_dist_effect.pdf"), width = 12, height = 6)
 
-
-pdf("cmass_dist_effect.pdf", width = 12, height = 6)
-
-managementslist <- c("base" , "lightthin","intensthin"   ,"longrot"     , "shortrot"      ,"rettree",      "ccf",  "ceaseman", "ceaseman_cct")         "ceaseman_cct_distoff"
+managementslist <- c("base" , "lightthin","intensthin"   ,"longrot"     , "shortrot"      ,"rettree",      "ccf",  "ceaseman", "ceaseman_cct","divers","ccf_divers")     #    "ceaseman_cct_distoff"
 
 for( management in managementslist) {
   for(scenario in scenarios){
@@ -710,26 +748,19 @@ for( management in managementslist) {
   collect <- myData_cmass_diston@data
   collect <- collect[,c("Lon","Lat","Year")]
   collect$cmass_diff <- myData_cmass_diston@data$Forest_sum -  myData_cmass_distoff@data$Forest_sum
-  #collect
-  
-  #calculate the cumulative sum cmass differences for timeperiods 2025-2050, 2050-2070, 2070-2100
-    #maybe I need this for plotting:
-    #collect <- collect[landcover_fractions[,c("Lon","Lat","Year","FOREST")], on = .(Lon, Lat, Year)]
-    
-  
 
-    # Define time period breaks; have the same period lengths: 
+  # Define time period breaks; have the same period lengths: 
     collect[, Year := fcase(
-      Year >= 2030 & Year <= 2050, as.numeric("2050"),
-      Year > 2051  & Year <= 2070, as.numeric("2070"),
-      Year > 2071  & Year <= 2090, as.numeric("2090")
-    )]
-    
-    # Cumulative sums by gridcell and period
+       Year >= earliest_period[1] & Year <= earliest_period[2], as.numeric("2050"),
+       Year > mid_period[1]       & Year <= mid_period[2], as.numeric("2070"),
+       Year > late_period[1]      & Year <= late_period[2], as.numeric("2090")
+     )]
+
+    # Means by gridcell and period
     collect_cumsum <- collect[
       !is.na(Year),
       .(
-        Cum_cmass_diff = mean(cmass_diff, na.rm = TRUE)
+        mean_cmass_diff = mean(cmass_diff, na.rm = TRUE)
         #FOREST    = first(FOREST)
       ),
       by = .(Lon, Lat, Year)
@@ -738,9 +769,9 @@ for( management in managementslist) {
     #merge with the regions /(groups):
     
     collect_cumsum_merged <- collect_cumsum[harv_st_clusters_subs_groups[,c("Lon","Lat","Group","colour")], on = .(Lon, Lat)]
-    collect_cumsum <- collect_cumsum[which(!is.infinite(collect_cumsum$cmass_diff)),]
-    cmass_wood_lost@data <- cumsum_damage
-    plotSpatial(cmass_wood_lost, years=c(2050,2070,2090),layers="Cum_cmass_diff", legend.title = "cmas diff")
+    collect_cumsum <- collect_cumsum_merged[which(!is.infinite(collect_cumsum_merged$mean_cmass_diff)),]
+    myData_cmass_diston@data <- collect_cumsum
+    plotSpatial(myData_cmass_diston, years=c(2050,2070,2090),layers="mean_cmass_diff", legend.title = "cmass diff")
     
     
     group_colours <- unique(collect_cumsum_merged[, .(Group, colour)])
@@ -748,7 +779,7 @@ for( management in managementslist) {
 
     
    #plots the mean cumulative difference across all gridcells:
-    p <- ggplot(collect_cumsum_merged, aes(x = Group, y = Cum_cmass_diff, fill = Group)) +
+    p <- ggplot(collect_cumsum_merged, aes(x = Group, y = mean_cmass_diff, fill = Group)) +
     geom_bar(stat = "summary", fun = "mean") +
     stat_summary(fun.data = mean_se, fun.args = list(mult = 1), 
                geom = "errorbar", width = 0.4, colour = "black", alpha = 0.9) +
@@ -802,26 +833,24 @@ for( management in managementslist) {
   collect <- myData_cmass_diston@data
   collect <- collect[,c("Lon","Lat","Year")]
   collect$cmass_diff <- myData_cmass_diston@data$Forest_sum -  myData_cmass_distoff@data$Forest_sum
-  #collect
+  collect$cmass_diston <- myData_cmass_diston@data$Forest_sum
+  collect$cmass_distoff <-myData_cmass_distoff@data$Forest_sum
   
-  #calculate the cumulative sum cmass differences for timeperiods 2025-2050, 2050-2070, 2070-2100
-    #maybe I need this for plotting:
-    #collect <- collect[landcover_fractions[,c("Lon","Lat","Year","FOREST")], on = .(Lon, Lat, Year)]
-    
-  
-
-    # Define time period breaks; have the same period lengths: 
+   # Define time period breaks; have the same period lengths: 
     collect[, Year := fcase(
-      Year >= 2030 & Year <= 2050, as.numeric("2050"),
-      Year > 2051  & Year <= 2070, as.numeric("2070"),
-      Year > 2071  & Year <= 2090, as.numeric("2090")
-    )]
+       Year >= earliest_period[1] & Year <= earliest_period[2], as.numeric("2050"),
+       Year > mid_period[1]       & Year <= mid_period[2], as.numeric("2070"),
+       Year > late_period[1]      & Year <= late_period[2], as.numeric("2090")
+     )]
     
-    # Cumulative sums by gridcell and period
-    collect_cumsum <- collect[
+    # sums by gridcell and period
+    collect_sum <- collect[
       !is.na(Year),
       .(
-        Cum_cmass_diff = mean(cmass_diff, na.rm = TRUE)
+        sum_cmass_diff = sum(cmass_diff, na.rm = TRUE),
+        mean_cmass_diff = mean(cmass_diff, na.rm = TRUE),
+        mean_cmass_diston = mean(cmass_diston, na.rm = TRUE),
+        mean_cmass_distoff = mean(cmass_distoff, na.rm = TRUE)
         #FOREST    = first(FOREST)
       ),
       by = .(Lon, Lat, Year)
@@ -829,13 +858,13 @@ for( management in managementslist) {
     
     #merge with the regions /(groups):
     
-    collect_cumsum_merged <- collect_cumsum[harv_st_clusters_subs_groups[,c("Lon","Lat","Group","colour")], on = .(Lon, Lat)]
+    collect_sum_merged <- collect_sum[harv_st_clusters_subs_groups[,c("Lon","Lat","Group","colour")], on = .(Lon, Lat)]
     
     # then tag it with the loop variables:
-    collect_cumsum_merged[, scenario   := scenario]
-    collect_cumsum_merged[, management := management]
+    collect_sum_merged[, scenario   := scenario]
+    collect_sum_merged[, management := management]
     
-    all_data[[paste(scenario, management, sep = "_")]] <- copy(collect_cumsum_merged)
+    all_data[[paste(scenario, management, sep = "_")]] <- copy(collect_sum_merged)
   }
 }
 
@@ -843,7 +872,7 @@ all_data_dt <- rbindlist(all_data)
 
 
 
-pdf("cmass_dist_effect_byregion.pdf", width = 12, height = 6)
+pdf(paste0(outdir,"cmass_dist_effect_byregion.pdf"), width = 12, height = 6)
 
 for(sc in scenarios){
   for(grp in unique(all_data_dt$Group)){
@@ -852,7 +881,7 @@ for(sc in scenarios){
     
     mgmt_colours <- setNames(man$col, man$management)
 
-    p <- ggplot(plot_data, aes(x = management, y = Cum_cmass_diff, fill = management)) +
+    p <- ggplot(plot_data, aes(x = management, y = mean_cmass_diff, fill = management)) +
       geom_bar(stat = "summary", fun = "mean") +
       stat_summary(fun.data = mean_se, fun.args = list(mult = 1), 
                geom = "errorbar", width = 0.4, colour = "black", alpha = 0.9) +
@@ -867,6 +896,7 @@ for(sc in scenarios){
       theme(axis.text.x = element_text(angle = 45, hjust = 1),
             legend.position = "bottom")
     print(p)
+    
   }
 }
 
@@ -874,6 +904,105 @@ dev.off()
 
 
 
+pdf(paste0(outdir,"cmass_dist_effect_byregion_boxplots_distonoff.pdf"), width = 12, height = 6)
+
+for(sc in scenarios){
+  for(grp in unique(all_data_dt$Group)){
+    
+    plot_data <- all_data_dt[scenario == sc & Group == grp]
+    
+    mgmt_colours <- setNames(man$col, man$management)
+    
+    
+    # -- Helper: lighten a colour by mixing with white (amount: 0=original, 1=white)
+lighten_col <- function(col, amount = 0.55) {
+  m <- col2rgb(col) / 255
+  rgb(m[1,] + amount * (1 - m[1,]),
+      m[2,] + amount * (1 - m[2,]),
+      m[3,] + amount * (1 - m[3,]))
+}
+
+# -- Paired Wilcoxon test: diston vs distoff, per management × year
+sig_df <- plot_data |>
+  group_by(management,Year) |>
+  summarise(
+    p_val = tryCatch(
+      wilcox.test(mean_cmass_diston, mean_cmass_distoff,
+                  paired = TRUE, exact = FALSE)$p.value,
+      error = function(e) NA_real_
+    ),
+    .groups = "drop"
+  ) |>
+  mutate(
+    sig_label = case_when(
+      is.na(p_val)  ~ "",
+      p_val < 0.001 ~ "***",
+      p_val < 0.01  ~ "**",
+      p_val < 0.05  ~ "*",
+      TRUE          ~ "ns"
+    )
+  )
+
+
+# -- Pivot to long: one row per (management, year, dist_type)
+plot_long <- plot_data |>
+  pivot_longer(
+    cols      = c(mean_cmass_diston, mean_cmass_distoff),
+    names_to  = "dist_type",
+    values_to = "mean_cmass"
+  ) |>
+  mutate(
+    dist_type = factor(dist_type,
+                       levels = c("mean_cmass_diston", "mean_cmass_distoff"),
+                       labels = c("dist on", "dist off")),
+    fill_id   = paste(management, dist_type, sep = "\u2014")
+  )
+
+# -- Y position for the label: just above the top whisker in each facet cell
+sig_df <- plot_long |>
+  group_by(management, Year) |>
+  summarise(y_pos = max(mean_cmass, na.rm = TRUE), .groups = "drop") |>
+  left_join(sig_df, by = c("management", "Year"))
+
+
+# -- Build fill map: full colour for "dist on", lightened for "dist off"
+fill_map <- c(
+  setNames(mgmt_colours,
+           paste(names(mgmt_colours), "dist on",  sep = "\u2014")),
+  setNames(lighten_col(mgmt_colours),
+           paste(names(mgmt_colours), "dist off", sep = "\u2014"))
+)
+
+# -- Plot
+p <- ggplot(plot_long,
+            aes(x    = management,
+                y    = mean_cmass,
+                fill = fill_id)) +
+  geom_boxplot(position = position_dodge(width = 0.8),
+              width    = 0.9) +
+  geom_text(data        = sig_df,
+            aes(x = management, y = y_pos, label = sig_label),
+            inherit.aes = FALSE,
+            vjust       = -0.3,
+            size        = 3) +
+  scale_fill_manual(
+    values = fill_map,
+    name   = NULL,
+    guide  = guide_legend(nrow = 2)
+  ) +
+  facet_wrap(~ Year, ncol = 3) +
+  labs(x     = "Management",
+       y     = "cmass 20-year-mean across region [kgC/m\u00b2]",
+       title = paste(unique(plot_data$Group), unique(plot_data$scenario))) +
+  theme_bw() +
+  theme(axis.text.x     = element_text(angle = 45, hjust = 1),
+        legend.position = "bottom")
+
+  print(p)
+  }
+}
+
+dev.off()
 ```
 
 ```{r Management_impact_on_dist_NBP}
@@ -886,8 +1015,7 @@ source("../../3_analysis_ForestPaths_Exploratory_runs/scripts/helper_functions.R
 management ="intensthin"
 scenarios=c("ssp126","ssp370")
 
-pdf("nbp_dist_effect.pdf", width = 12, height = 6)
-managementslist <- c("base" , "lightthin","intensthin"   ,"longrot"     , "shortrot"      ,"rettree",      "ccf",  "ceaseman"   )#                "ceaseman_cct"         "ceaseman_cct_distoff"
+pdf(paste0(outdir,"nbp_dist_effect.pdf"), width = 12, height = 6)
 
 for( management in managementslist) {
   for(scenario in scenarios){
@@ -909,27 +1037,24 @@ for( management in managementslist) {
   
   
   # 1. Get forest biomass (from cmass_wood_sts or diam_cmass_wood)
+  # *-1.0
   myData_cmass_distoff <- getField(source = source.in_distoff, quant = "cflux_forest")
-  myData_cmass_distoff@data$NBP <- myData_cmass_distoff@data$NEE - myData_cmass_distoff@data$LU_ch
+  myData_cmass_distoff@data$NBP <- (myData_cmass_distoff@data$NEE - myData_cmass_distoff@data$LU_ch)*-1.0
   myData_cmass_diston <- getField(source = source.in_diston, quant = "cflux_forest")
-  myData_cmass_diston@data$NBP <- myData_cmass_diston@data$NEE - myData_cmass_diston@data$LU_ch
-  
+  myData_cmass_diston@data$NBP <- (myData_cmass_diston@data$NEE - myData_cmass_diston@data$LU_ch)*-1.0
   
   collect <- myData_cmass_diston@data
   collect <- collect[,c("Lon","Lat","Year")]
   collect$NBP_diff <- myData_cmass_diston@data$NBP -  myData_cmass_distoff@data$NBP
   
-
     myData_cmass_diston@data <- myData_cmass_diston@data[landcover_fractions[,c("Lon","Lat","Year","FOREST")], on = .(Lon, Lat, Year)]
     myData_cmass_diston@data$NBP_diff <-  myData_cmass_diston@data$NBP_diff /myData_cmass_diston@data$FOREST
 
-  
-
     # Define time period breaks; have the same period lengths: 
     collect[, Year := fcase(
-      Year >= 2030 & Year <= 2050, as.numeric("2050"),
-      Year > 2051  & Year <= 2070, as.numeric("2070"),
-      Year > 2071  & Year <= 2090, as.numeric("2090")
+      Year >= earliest_period[1] & Year <= earliest_period[2], as.numeric("2050"),
+      Year > mid_period[1]       & Year <= mid_period[2], as.numeric("2070"),
+      Year > late_period[1]      & Year <= late_period[2], as.numeric("2090")
     )]
     
     # Cumulative sums by gridcell and period
@@ -937,6 +1062,7 @@ for( management in managementslist) {
       !is.na(Year),
       .(
         Cum_NBP_diff = mean(NBP_diff, na.rm = TRUE)
+        
         #FOREST    = first(FOREST)
       ),
       by = .(Lon, Lat, Year)
@@ -1002,32 +1128,37 @@ for( management in managementslist) {
   
   # 1. Get forest biomass (from cmass_wood_sts or diam_cmass_wood)
   myData_cmass_distoff <- getField(source = source.in_distoff, quant = "cflux_forest")
-  myData_cmass_distoff@data$NBP <- myData_cmass_distoff@data$NEE - myData_cmass_distoff@data$LU_ch
+  myData_cmass_distoff@data$NBP <- (myData_cmass_distoff@data$NEE - myData_cmass_distoff@data$LU_ch )*-1.0
   myData_cmass_diston <- getField(source = source.in_diston, quant = "cflux_forest")
-  myData_cmass_diston@data$NBP <- myData_cmass_diston@data$NEE - myData_cmass_diston@data$LU_ch
+  myData_cmass_diston@data$NBP <- (myData_cmass_diston@data$NEE - myData_cmass_diston@data$LU_ch)*-1.0
   
   
   collect <- myData_cmass_diston@data
   collect <- collect[,c("Lon","Lat","Year")]
   collect$NBP_diff <- myData_cmass_diston@data$NBP -  myData_cmass_distoff@data$NBP
+  collect$NBP_on  <- myData_cmass_diston@data$NBP 
+  collect$NBP_off <- myData_cmass_distoff@data$NBP
   
   #calculate the MEAN cmass differences for timeperiods 2025-2050, 2050-2070, 2070-2100
   #FIRST, get to per forest area:
     myData_cmass_diston@data <- myData_cmass_diston@data[landcover_fractions[,c("Lon","Lat","Year","FOREST")], on = .(Lon, Lat, Year)]
     myData_cmass_diston@data$NBP <-  myData_cmass_diston@data$NBP /myData_cmass_diston@data$FOREST
 
+  
     # Define time period breaks; have the same period lengths: 
     collect[, Year := fcase(
-      Year >= 2030 & Year <= 2050, as.numeric("2050"),
-      Year > 2051  & Year <= 2070, as.numeric("2070"),
-      Year > 2071  & Year <= 2090, as.numeric("2090")
+      Year >= earliest_period[1] & Year <= earliest_period[2], as.numeric("2050"),
+      Year > mid_period[1]       & Year <= mid_period[2], as.numeric("2070"),
+      Year > late_period[1]      & Year <= late_period[2], as.numeric("2090")
     )]
     
     # Cumulative sums by gridcell and period
     collect_cumsum <- collect[
       !is.na(Year),
       .(
-        Cum_NBP_diff = mean(NBP_diff, na.rm = TRUE)
+        mean_NBP_diff = mean(NBP_diff, na.rm = TRUE),
+        mean_NBP_on  = mean(NBP_on, na.rm = TRUE),
+        mean_NBP_off = mean(NBP_off, na.rm = TRUE)
         #FOREST    = first(FOREST)
       ),
       by = .(Lon, Lat, Year)
@@ -1050,7 +1181,7 @@ all_data_dt <- rbindlist(all_data)
 
 
 
-pdf("NBP_dist_effect_byregion.pdf", width = 12, height = 6)
+pdf(paste0(outdir,"nbp_dist_effect_byregion.pdf"), width = 12, height = 6)
 
 for(sc in scenarios){
   for(grp in unique(all_data_dt$Group)){
@@ -1059,7 +1190,7 @@ for(sc in scenarios){
     
     mgmt_colours <- setNames(man$col, man$management)
 
-    p <- ggplot(plot_data, aes(x = management, y = Cum_NBP_diff, fill = management)) +
+    p <- ggplot(plot_data, aes(x = management, y = mean_NBP_diff, fill = management)) +
       geom_bar(stat = "summary", fun = "mean") +
        stat_summary(fun.data = mean_se, fun.args = list(mult = 1), 
          geom = "errorbar", width = 0.4, colour = "black", alpha = 0.9) +
@@ -1081,6 +1212,107 @@ dev.off()
 
 
 
+
+pdf(paste0(outdir,"nbp_byregion_boxplots_distonoff.pdf"), width = 12, height = 6)
+
+for(sc in scenarios){
+  for(grp in unique(all_data_dt$Group)){
+    
+    plot_data <- all_data_dt[scenario == sc & Group == grp]
+    
+    mgmt_colours <- setNames(man$col, man$management)
+    
+    
+    # -- Helper: lighten a colour by mixing with white (amount: 0=original, 1=white)
+lighten_col <- function(col, amount = 0.55) {
+  m <- col2rgb(col) / 255
+  rgb(m[1,] + amount * (1 - m[1,]),
+      m[2,] + amount * (1 - m[2,]),
+      m[3,] + amount * (1 - m[3,]))
+}
+
+# -- Paired Wilcoxon test: diston vs distoff, per management × year
+sig_df <- plot_data |>
+  group_by(management,Year) |>
+  summarise(
+    p_val = tryCatch(
+      wilcox.test(mean_NBP_on, mean_NBP_off,
+                  paired = TRUE, exact = FALSE)$p.value,
+      error = function(e) NA_real_
+    ),
+    .groups = "drop"
+  ) |>
+  mutate(
+    sig_label = case_when(
+      is.na(p_val)  ~ "",
+      p_val < 0.001 ~ "***",
+      p_val < 0.01  ~ "**",
+      p_val < 0.05  ~ "*",
+      TRUE          ~ "ns"
+    )
+  )
+
+
+# -- Pivot to long: one row per (management, year, dist_type)
+plot_long <- plot_data |>
+  pivot_longer(
+    cols      = c(mean_NBP_on, mean_NBP_off),
+    names_to  = "dist_type",
+    values_to = "mean_NBP"
+  ) |>
+  mutate(
+    dist_type = factor(dist_type,
+                       levels = c("mean_NBP_on", "mean_NBP_off"),
+                       labels = c("dist on", "dist off")),
+    fill_id   = paste(management, dist_type, sep = "\u2014")
+  )
+
+# -- Y position for the label: just above the top whisker in each facet cell
+sig_df <- plot_long |>
+  group_by(management, Year) |>
+  summarise(y_pos = max(mean_NBP, na.rm = TRUE), .groups = "drop") |>
+  left_join(sig_df, by = c("management", "Year"))
+
+
+# -- Build fill map: full colour for "dist on", lightened for "dist off"
+fill_map <- c(
+  setNames(mgmt_colours,
+           paste(names(mgmt_colours), "dist on",  sep = "\u2014")),
+  setNames(lighten_col(mgmt_colours),
+           paste(names(mgmt_colours), "dist off", sep = "\u2014"))
+)
+
+# -- Plot
+p <- ggplot(plot_long,
+            aes(x    = management,
+                y    = mean_NBP,
+                fill = fill_id)) +
+  geom_boxplot(position = position_dodge(width = 0.8),
+              width    = 0.9) +
+  geom_text(data        = sig_df,
+            aes(x = management, y = y_pos, label = sig_label),
+            inherit.aes = FALSE,
+            vjust       = -0.3,
+            size        = 3) +
+  scale_fill_manual(
+    values = fill_map,
+    name   = NULL,
+    guide  = guide_legend(nrow = 2)
+  ) +
+  facet_wrap(~ Year, ncol = 3) +
+  labs(x     = "Management",
+       y     = "NBP 20-year-mean across region [kgC/m\u00b2]",
+       title = paste(unique(plot_data$Group), unique(plot_data$scenario))) +
+  theme_bw() +
+  theme(axis.text.x     = element_text(angle = 45, hjust = 1),
+        legend.position = "bottom")
+
+  print(p)
+  }
+}
+
+dev.off()
+
 ```
 
 ```{r Management_impact_on_dist_harvest}
@@ -1093,8 +1325,7 @@ source("../../3_analysis_ForestPaths_Exploratory_runs/scripts/helper_functions.R
 management ="intensthin"
 scenarios=c("ssp126","ssp370")
 
-pdf("nbp_dist_effect.pdf", width = 12, height = 6)
-managementslist <- c("base" , "lightthin","intensthin"   ,"longrot"     , "shortrot"      ,"rettree",      "ccf",  "ceaseman"   )#                "ceaseman_cct"         "ceaseman_cct_distoff"
+pdf(paste0(outdir,"harvest_dist_effect.pdf"), width = 12, height = 6)
 
 for( management in managementslist) {
   for(scenario in scenarios){
@@ -1128,15 +1359,16 @@ for( management in managementslist) {
   #myData_harv_cct_diston@data$Total <- rowSums(myData_harv_cct_diston@data[,c(4:19)])
   #myData_harv_thin_diston@data$TotHarv <- myData_harv_thin_diston@data$Total +  myData_harv_cct_diston@data$Total 
   
-  collect <- myData_cmass_diston@data
-  collect <- collect[,c("Lon","Lat","Year")]
-  collect$TotHarv_diff <- myData_harv_thin_diston@data$Forest_sum -  myData_harv_thin_distoff@data$Forest_sum
-
-    # Define time period breaks; have the same period lengths: 
+  
+  collect <- myData_harv_thin_diston@data          # was: myData_cmass_diston@data
+  collect <- collect[, c("Lon", "Lat", "Year")]
+  collect$TotHarv_diff <- myData_harv_thin_diston@data$Forest_sum -
+                          myData_harv_thin_distoff@data$Forest_sum
+   # Define time period breaks; have the same period lengths: 
     collect[, Year := fcase(
-      Year >= 2030 & Year <= 2050, as.numeric("2050"),
-      Year > 2051  & Year <= 2070, as.numeric("2070"),
-      Year > 2071  & Year <= 2090, as.numeric("2090")
+      Year >= earliest_period[1] & Year <= earliest_period[2], as.numeric("2050"),
+      Year > mid_period[1]       & Year <= mid_period[2], as.numeric("2070"),
+      Year > late_period[1]      & Year <= late_period[2], as.numeric("2090")
     )]
     
     # Cumulative sums by gridcell and period
@@ -1153,8 +1385,6 @@ for( management in managementslist) {
     
     collect_cumsum_merged <- collect_cumsum[harv_st_clusters_subs_groups[,c("Lon","Lat","Group","colour")], on = .(Lon, Lat)]
     
-    myData_harv_cct_diston@data <- collect_cumsum
-    plotSpatial(myData_harv_cct_diston,layer="Cum_TotHarv_diff")
     
     group_colours <- unique(collect_cumsum_merged[, .(Group, colour)])
     group_colours <- setNames(group_colours$colour, group_colours$Group)
@@ -1207,37 +1437,37 @@ for( management in managementslist) {
   
   # 1. Get forest biomass (from cmass_wood_sts or diam_cmass_wood)
   myData_harv_thin_distoff <- getField(source = source.in_distoff, quant = "cmass_wood_harv_sts")
-  #myData_harv_thin_distoff@data$Total <- rowSums(myData_harv_thin_distoff@data[,c(4:19)])
-  #myData_harv_cct_distoff <- getField(source = source.in_distoff, quant = "closs_harv_ccut")
-  #myData_harv_cct_distoff@data$Total <- rowSums(myData_harv_cct_distoff@data[,c(4:19)])
-  #myData_harv_thin_distoff@data$TotHarv <- myData_harv_thin_distoff@data$Total +  myData_harv_cct_distoff@data$Total 
+  myData_harv_thin_diston  <- getField(source = source.in_diston,  quant = "cmass_wood_harv_sts")
+
   
-  myData_harv_thin_diston <- getField(source = source.in_diston, quant = "cmass_wood_harv_sts")
-  #myData_harv_thin_diston@data$Total <- rowSums(myData_harv_thin_diston@data[,c(4:19)])
-  #myData_harv_cct_diston <- getField(source = source.in_diston, quant = "closs_harv_ccut")
-  #myData_harv_cct_diston@data$Total <- rowSums(myData_harv_cct_diston@data[,c(4:19)])
-  #myData_harv_thin_diston@data$TotHarv <- myData_harv_thin_diston@data$Total +  myData_harv_cct_diston@data$Total 
-  
-  collect <- myData_cmass_diston@data
+  collect <- myData_harv_thin_diston@data
   collect <- collect[,c("Lon","Lat","Year")]
   collect$TotHarv_diff <- myData_harv_thin_diston@data$Forest_sum -  myData_harv_thin_distoff@data$Forest_sum
+  collect$TotHarv_on   <- myData_harv_thin_diston@data$Forest_sum 
+  collect$TotHarv_off  <- myData_harv_thin_distoff@data$Forest_sum
+
 
     # Define time period breaks; have the same period lengths: 
     collect[, Year := fcase(
-      Year >= 2030 & Year <= 2050, as.numeric("2050"),
-      Year > 2051  & Year <= 2070, as.numeric("2070"),
-      Year > 2071  & Year <= 2090, as.numeric("2090")
+      Year >= earliest_period[1] & Year <= earliest_period[2], as.numeric("2050"),
+      Year > mid_period[1]       & Year <= mid_period[2], as.numeric("2070"),
+      Year > late_period[1]      & Year <= late_period[2], as.numeric("2090")
     )]
     
-    # Cumulative sums by gridcell and period
+    # Mean: by gridcell and period; forest-area-weighted mean
     collect_cumsum <- collect[
       !is.na(Year),
       .(
-        Cum_TotHarv_diff = mean(TotHarv_diff, na.rm = TRUE)
+        mean_TotHarv_diff = mean(TotHarv_diff, na.rm = TRUE),
+        mean_TotHarv_on   = mean(TotHarv_on, na.rm = TRUE),
+        mean_TotHarv_off  = mean(TotHarv_off, na.rm = TRUE),
+
         #FOREST    = first(FOREST)
       ),
       by = .(Lon, Lat, Year)
     ]
+    
+
     
     #merge with the regions /(groups):
     
@@ -1253,24 +1483,19 @@ for( management in managementslist) {
 
 all_data_dt <- rbindlist(all_data)
 
-
-pdf("harv_dist_effect_byregion.pdf", width = 12, height = 6)
-
-for(sc in scenarios){
-  for(grp in unique(all_data_dt$Group)){
-    
+pdf(paste0(outdir, "harvest_dist_effect_byregion.pdf"), width = 12, height = 6)
+for (sc in scenarios) {
+  for (grp in unique(all_data_dt$Group)) {
     plot_data <- all_data_dt[scenario == sc & Group == grp]
-    
     mgmt_colours <- setNames(man$col, man$management)
-
-    p <- ggplot(plot_data, aes(x = management, y = Cum_TotHarv_diff, fill = management)) +
+    p <- ggplot(plot_data, aes(x = management, y = mean_TotHarv_diff, fill = management)) +
       geom_bar(stat = "summary", fun = "mean") +
-       stat_summary(fun.data = mean_se, fun.args = list(mult = 1), 
-         geom = "errorbar", width = 0.4, colour = "black", alpha = 0.9) +
+      stat_summary(fun.data = mean_se, fun.args = list(mult = 1),
+                   geom = "errorbar", width = 0.4, colour = "black", alpha = 0.9) +
       scale_fill_manual(values = mgmt_colours) +
       facet_wrap(~ Year, ncol = 3) +
-      labs(x = "Management", 
-           y     = "harvest difference (diston - distoff), 20 year mean across region [KgC/m2]",
+      labs(x = "Management",
+           y     = "Harvest difference (diston - distoff), 20-year mean across region [kgC/m\u00b2]",
            fill  = "Management",
            title = paste(grp, sc)) +
       theme_bw() +
@@ -1279,12 +1504,8 @@ for(sc in scenarios){
     print(p)
   }
 }
-
-dev.off()
-
-
-
-pdf("harv_dist_effect_byregion_boxplot.pdf", width = 12, height = 6)
+dev.off() 
+pdf(paste0(outdir,"harvest_byregion_boxplots_distonoff.pdf"), width = 12, height = 6)
 
 for(sc in scenarios){
   for(grp in unique(all_data_dt$Group)){
@@ -1292,26 +1513,357 @@ for(sc in scenarios){
     plot_data <- all_data_dt[scenario == sc & Group == grp]
     
     mgmt_colours <- setNames(man$col, man$management)
-
-#boxplot: 
-p <- ggplot(plot_data, aes(x = management, y = Cum_TotHarv_diff, fill = management)) +
-  geom_boxplot() +
-  scale_fill_manual(values = mgmt_colours) +
     
+    
+    # -- Helper: lighten a colour by mixing with white (amount: 0=original, 1=white)
+lighten_col <- function(col, amount = 0.55) {
+  m <- col2rgb(col) / 255
+  rgb(m[1,] + amount * (1 - m[1,]),
+      m[2,] + amount * (1 - m[2,]),
+      m[3,] + amount * (1 - m[3,]))
+}
+
+# -- Paired Wilcoxon test: diston vs distoff, per management × year
+sig_df <- plot_data |>
+  group_by(management,Year) |>
+  summarise(
+    p_val = tryCatch(
+      wilcox.test(mean_TotHarv_on, mean_TotHarv_off,
+                  paired = TRUE, exact = FALSE)$p.value,
+      error = function(e) NA_real_
+    ),
+    .groups = "drop"
+  ) |>
+  mutate(
+    sig_label = case_when(
+      is.na(p_val)  ~ "",
+      p_val < 0.001 ~ "***",
+      p_val < 0.01  ~ "**",
+      p_val < 0.05  ~ "*",
+      TRUE          ~ "ns"
+    )
+  )
+
+
+# -- Pivot to long: one row per (management, year, dist_type)
+plot_long <- plot_data |>
+  pivot_longer(
+    cols      = c(mean_TotHarv_on, mean_TotHarv_off),
+    names_to  = "dist_type",
+    values_to = "mean_harvest"
+  ) |>
+  mutate(
+    dist_type = factor(dist_type,
+                       levels = c("mean_TotHarv_on", "mean_TotHarv_off"),
+                       labels = c("dist on", "dist off")),
+    fill_id   = paste(management, dist_type, sep = "\u2014")
+  )
+
+# -- Y position for the label: just above the top whisker in each facet cell
+sig_df <- plot_long |>
+  group_by(management, Year) |>
+  summarise(y_pos = max(mean_harvest, na.rm = TRUE), .groups = "drop") |>
+  left_join(sig_df, by = c("management", "Year"))
+
+
+# -- Build fill map: full colour for "dist on", lightened for "dist off"
+fill_map <- c(
+  setNames(mgmt_colours,
+           paste(names(mgmt_colours), "dist on",  sep = "\u2014")),
+  setNames(lighten_col(mgmt_colours),
+           paste(names(mgmt_colours), "dist off", sep = "\u2014"))
+)
+
+# -- Plot
+p <- ggplot(plot_long,
+            aes(x    = management,
+                y    = mean_harvest,
+                fill = fill_id)) +
+  geom_boxplot(position = position_dodge(width = 0.8),
+              width    = 0.9) +
+  geom_text(data        = sig_df,
+            aes(x = management, y = y_pos, label = sig_label),
+            inherit.aes = FALSE,
+            vjust       = -0.3,
+            size        = 3) +
+  scale_fill_manual(
+    values = fill_map,
+    name   = NULL,
+    guide  = guide_legend(nrow = 2)
+  ) +
   facet_wrap(~ Year, ncol = 3) +
-  labs(x = "Management", 
-       y     = "harvest difference (diston - distoff), 20 year mean across region [KgC/m2]",
-       fill  = "Management",
-       title = paste(grp, sc)) +
+  labs(x     = "Management",
+       y     = "Harvest 20-year-mean across region [kgC/m\u00b2]",
+       title = paste(unique(plot_data$Group), unique(plot_data$scenario))) +
   theme_bw() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+  theme(axis.text.x     = element_text(angle = 45, hjust = 1),
         legend.position = "bottom")
-print(p)
+
+  print(p)
   }
 }
 
 dev.off()
 
+
 ```
 
+```{r Management_impact_on_disturbance_losses_cumulative_disturbance_plots}
 
+
+# First collect all data
+all_data <- list()
+
+#collect data:
+for( management in managementslist) {
+  for(scenario in c("ssp370","ssp126")){
+   
+    folder_name <- paste0(base_dir,management, "_fut_MPI-ESM1-2-HR_",
+                                scenario, "_diston")
+    
+    #retrieve the source file location + add some metadata:
+    source.in = defineSource(id= paste0(management,"_",scenario),
+                                     dir= paste0(folder_name),
+                                     format = GUESS,
+                                     name = paste0(management,"_",scenario))
+            
+            
+    # ============================================================
+    # 1. TOTAL FOREST BIOMASS (from diam_cmass_wood or cmass_wood_sts)
+    # ============================================================
+    
+    myData_cmass <- getField(source = source.in, quant = "diam_cmass_wood")
+    myData_cmass@data$Total <- rowSums(myData_cmass@data[, 4:dim(myData_cmass@data)[2]])
+    myData_cmass@data <- merge(myData_cmass@data, frac_lu, by = c("Lon", "Lat", "Year"))
+    
+    # Calculate gridcell area
+    myData_cmass@data[, GridcellArea_m2 := GridcellArea_m2(Lat, res = 0.5)]
+    
+    # Total is in kgC/m² of gridcell (already weighted by all land fractions)
+    # To get absolute kgC in forest: multiply by gridcell area
+    # But diam_cmass_wood includes all landcover, so we need forest fraction
+    # Actually: Total * FOREST gives forest contribution per m² gridcell
+    # Then multiply by gridcell area to get absolute kgC
+    
+    merged_biomass <- myData_cmass@data[, Forest_biomass_kgC := Total * FOREST * GridcellArea_m2]
+    
+    # Sum across all gridcells per year
+    biomass_EU <- myData_cmass@data[, .(EU_forest_biomass_kgC = sum(Forest_biomass_kgC, na.rm = TRUE)), by = Year]
+    
+    # ============================================================
+    # 2. STORM DAMAGE (from storm.out --> DamWoodC)
+    # ============================================================
+    
+    myData_storm <- getField(source = source.in, quant = "storm")
+    merged_storm <- myData_storm@data[frac_lu, on = .(Lon, Lat, Year)]
+    
+    # DamWoodC is already kgC/m² of gridcell (forest contribution)
+    # Multiply by gridcell area to get absolute kgC
+    merged_storm[, GridcellArea_m2 := GridcellArea_m2(Lat, res = 0.5)]
+    merged_storm[, Storm_damage_kgC := DamWoodC * GridcellArea_m2]
+    
+    
+    # Sum across all gridcells per year
+    storm_EU <- merged_storm[, .(EU_storm_damage_kgC = sum(Storm_damage_kgC, na.rm = TRUE)), by = Year]
+    
+    # ============================================================
+    # 3. INSECT DAMAGE (from storm.out -> InsDWC)
+    # ============================================================
+    
+    myData_insect <- getField(source = source.in, quant = "storm")
+    merged_insect <- myData_insect@data[frac_lu, on = .(Lon, Lat, Year)]
+    
+    # InsDWC is already kgC/m² of gridcell (forest contribution)
+    # Multiply by gridcell area to get absolute kgC
+    merged_insect[, GridcellArea_m2 := GridcellArea_m2(Lat, res = 0.5)]
+    merged_insect[, Insect_damage_kgC := InsDWC * GridcellArea_m2]
+    
+    # Sum across all gridcells per year
+    insect_EU <- merged_insect[, .(EU_insect_damage_kgC = sum(Insect_damage_kgC, na.rm = TRUE)), by = Year]
+    
+    # ============================================================
+    # 4. FIRE LOSSES (from cflux_forest.out)
+    # ============================================================
+    # note that cflux_forest contains all combusted carbon, whereas the other variables only contain wood.
+    # but the difference is probably not that large.
+    myData_fire <- getField(source = source.in, quant = "cflux_forest")
+    
+    # Fire column is already in kgC/m² of gridcell (forest fire contribution)
+    # Multiply by gridcell area to get absolute kgC
+    myData_fire@data[, GridcellArea_m2 := GridcellArea_m2(Lat, res = 0.5)]
+    myData_fire@data[, Fire_damage_kgC := Fire * GridcellArea_m2]
+    
+    merged_fire <- myData_fire@data[, Fire_damage_kgC := Fire * GridcellArea_m2]
+    
+    # Sum across all gridcells per year
+    fire_EU <- myData_fire@data[, .(EU_fire_damage_kgC = sum(Fire_damage_kgC, na.rm = TRUE)), by = Year]
+  
+    
+    # collect all variables
+    collect <- merged_fire[,c("Lon","Lat","Year","Fire_damage_kgC")]
+    collect <- collect[merged_insect[,c("Lon","Lat","Year","Insect_damage_kgC")],on =.(Lon,Lat,Year)]
+    collect <- collect[merged_storm[,c("Lon","Lat","Year","Storm_damage_kgC")],on =.(Lon,Lat,Year)]
+    collect <- collect[merged_biomass[,c("Lon","Lat","Year","Forest_biomass_kgC")],on =.(Lon,Lat,Year)]
+    
+    #remove 2024:
+    collect <- collect[which(collect$Year>2024),]
+    
+    # Define time period breaks; have the same period lengths: 
+    collect[, Year := fcase(
+      Year >= earliest_period[1] & Year <= earliest_period[2], as.numeric("2050"),
+      Year > mid_period[1]       & Year <= mid_period[2], as.numeric("2070"),
+      Year > late_period[1]      & Year <= late_period[2], as.numeric("2090")
+    )]
+    
+    # sums or means by gridcell and period and change unit to MtC:
+    collect_sum <- collect[
+      !is.na(Year),
+      .(
+        Fire_damage_kgC = mean(Fire_damage_kgC, na.rm = TRUE)/1000, #KgC to MtC,
+        Insect_damage_kgC = mean(Insect_damage_kgC, na.rm = TRUE)/1000, #KgC to MtC,
+        Storm_damage_kgC = mean(Storm_damage_kgC, na.rm = TRUE)/1000, #KgC to MtC,
+        Forest_biomass_kgC = mean(Forest_biomass_kgC, na.rm = TRUE)/1000 #KgC to MtC
+        #FOREST    = first(FOREST)
+      ),
+      by = .(Lon, Lat, Year)
+    ]
+    
+    # actually, change to % biomass present, to not have y-axis allover the place across Groups/regions:
+    collect_sum[, storm_perc_lost := Storm_damage_kgC / Forest_biomass_kgC * 100]
+    collect_sum[, insect_perc_lost := Insect_damage_kgC / Forest_biomass_kgC * 100]
+    collect_sum[, fire_perc_lost := Fire_damage_kgC / Forest_biomass_kgC * 100]
+    
+    #merge with the regions /(groups):
+    
+    collect_sum_merged <- collect_sum[harv_st_clusters_subs_groups[,c("Lon","Lat","Group","colour")], on = .(Lon, Lat)]
+    
+    # then tag it with the loop variables:
+    collect_sum_merged[, scenario   := scenario]
+    collect_sum_merged[, management := management]
+    
+    all_data[[paste(scenario, management, sep = "_")]] <- copy(collect_sum_merged)
+  }
+}
+
+all_data_dt <- rbindlist(all_data)
+
+
+
+# ── Adaptive page height: 2.5 in per group + space for title/legend ───────────
+n_groups    <- length(unique(all_data_dt$Group))
+page_height <- 2.5 * n_groups + 2
+
+pdf(paste0(outdir, "disturbance_losses_byregion_and_period_barplot.pdf"),
+    width = 13, height = page_height)
+
+for (sc in scenarios) {
+
+  sc_data <- all_data_dt[scenario == sc]
+  if (nrow(sc_data) == 0L) next
+
+  # ── Long format for all groups at once ───────────────────────────────────────
+  plot_long_all <- data.table::melt(
+    sc_data,
+    measure.vars  = c("insect_perc_lost", "storm_perc_lost"),
+    variable.name = "damage_type",
+    value.name    = "damage_perc"
+  )
+  plot_long_all[, damage_type := factor(damage_type,
+    levels = c("insect_perc_lost", "storm_perc_lost"),
+    labels = c("Insect", "Storm"))]
+  plot_long_all[, Year    := factor(Year, levels = year_levels)]
+  plot_long_all[, fill_id := paste(management, as.character(Year), sep = "_")]
+  plot_long_all[, Group   := factor(Group, levels = unique(all_data_dt$Group))]
+
+  # ── Helper: one damage-type column ───────────────────────────────────────────
+  # show_group_labels: TRUE only for the rightmost column (storm) to avoid
+  # repeating group names; the aligned rows make them readable from one side.
+  make_col <- function(dt, ylab, show_group_labels = FALSE) {
+    ggplot(dt, aes(x = management, y = damage_perc, fill = fill_id)) +
+      geom_bar(stat     = "summary",
+               fun      = "mean",
+               position = position_dodge(width = 0.9),
+               width    = 0.9) +
+      stat_summary(fun.data = mean_se,
+                   geom     = "errorbar",
+                   width    = 0.15,
+                   colour   = "black",
+                   position = position_dodge(width = 0.9)) +
+      scale_fill_manual(values = fill_map,
+                        breaks = legend_breaks,
+                        labels = legend_labels,
+                        name   = "Year") +
+      facet_wrap(~ Group, ncol = 1, strip.position = "right",
+                 scales = "free_y") +      # ← free per group panel
+      labs(x = NULL, y = ylab) +
+      theme_bw() +
+      theme(
+        axis.text.x      = element_text(angle = 45, hjust = 1),
+        strip.text.y     = if (show_group_labels)
+                             element_text(size = 9, face = "bold", angle = 0)
+                           else
+                             element_blank(),
+        strip.background = element_rect(fill = "grey93", colour = NA)
+      )
+  }
+
+  p_insect <- make_col(
+    plot_long_all[damage_type == "Insect"],
+    "Insect damage [% Biomass]",
+    show_group_labels = FALSE
+  )
+
+  p_storm <- make_col(
+    plot_long_all[damage_type == "Storm"],
+   
+    "Storm damage [% Biomass]",
+    show_group_labels = TRUE   # group names on right edge of page
+  )
+
+  # ── Extract shared legend, then suppress on both plots ───────────────────────
+  .get_legend <- function(p) {
+    g   <- ggplot2::ggplotGrob(p + theme(legend.position = "right"))
+    idx <- which(vapply(g$grobs, function(x) x$name, character(1)) == "guide-box")
+    if (length(idx) == 0L) return(NULL)
+    g$grobs[[idx[1]]]
+  }
+
+  leg            <- .get_legend(p_insect)
+  p_insect_noleg <- p_insect + theme(legend.position = "none")
+  p_storm_noleg  <- p_storm  + theme(legend.position = "none")
+
+  # ── Assemble: title / two columns / legend ───────────────────────────────────
+  title_grob <- grid::textGrob(
+    paste("Disturbance damage \u2014", sc),
+    gp = grid::gpar(fontsize = 12, fontface = "bold")
+  )
+
+  body_grob <- gridExtra::arrangeGrob(
+    p_insect_noleg, p_storm_noleg,
+    nrow   = 1,
+    widths = grid::unit(c(1, 1), "null")
+  )
+
+  combined <- if (!is.null(leg)) {
+    gridExtra::arrangeGrob(
+      title_grob, body_grob, leg,
+      ncol    = 1,
+      heights = grid::unit(c(0.04, 1, 0.06), c("npc", "null", "npc"))
+    )
+  } else {
+    gridExtra::arrangeGrob(
+      title_grob, body_grob,
+      ncol    = 1,
+      heights = grid::unit(c(0.04, 1), c("npc", "null"))
+    )
+  }
+
+  grid::grid.draw(combined)
+  grid::grid.newpage()   # advance to next page before next iteration
+}
+
+dev.off()
+
+
+
+```

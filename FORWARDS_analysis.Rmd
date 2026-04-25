@@ -450,7 +450,9 @@ if(extract_c){
 
 
 
-```{r for Risk_analysis}
+```{r for Risk_analysis_stakeholders}
+
+#pretty plots are created with plot_disturbance_and_carbonloss_risk.ipynb
 
 v16 <- "/Volumes/Anne's Backup/ForestPaths/v16/"  
 base_dir <- v16
@@ -479,7 +481,17 @@ for(scenario in scenarios){
     # at gridcell-level. To get Forest -only wind_losses: /forest fraction.
     cmass_wood_lost <- getField(source = source.in, quant = "storm")
     
-     # Add forest area
+    
+    # 3. #for now, don't work with fire closs fluxes but with burnt area:
+    #this is already at gridcell-level, so no scaling necessary.
+    myData_fire <- getField(source = source.in, quant = "mburned_area")
+    # sum of all monthly burned area fractions, to get annual value:
+    myData_fire@data <- myData_fire@data[, .(Burnt_area_frac = sum(mburned_area, na.rm = TRUE)), by = .( Lat,Lon,Year)]
+    
+     # Add gridcell area to burnt area: 
+     #myData_fire@data$GridcellArea_m2 <- GridcellArea_m2(myData_fire@data$Lat, res = 0.5) 
+     
+     # Add forest area to insect and storm damage object:
      cmass_wood_lost@data <- cmass_wood_lost@data[landcover_fractions[,c("Lon","Lat","Year","FOREST")], on = .(Lon, Lat, Year)]
      cmass_wood_lost@data$GridcellArea_m2 <- GridcellArea_m2(cmass_wood_lost@data$Lat, res = 0.5)
      cmass_wood_lost@data$Forest_area <- cmass_wood_lost@data$GridcellArea_m2 * cmass_wood_lost@data$FOREST
@@ -489,12 +501,16 @@ for(scenario in scenarios){
     cmass_wood_lost@data$Forest_Insect_damage <- cmass_wood_lost@data$InsDWC /  cmass_wood_lost@data$FOREST
     cmass_wood_lost@data$Forest_Storm_damage  <- cmass_wood_lost@data$DamWoodC /  cmass_wood_lost@data$FOREST
     
-    #merge forest biomass and biomass loss tables: 
+    # merge burnt area lost with biomass loss table:
+    cmass_wood_lost@data <- cmass_wood_lost@data[ myData_fire@data[,c("Burnt_area_frac","Lat","Lon","Year")],  on = .(Lon, Lat, Year)]
+    
+    # merge forest biomass and biomass loss tables: 
     ss <- cmass_wood_lost@data[ myData_cmass@data[,c("Forest_sum","Lat","Lon","Year")],  on = .(Lon, Lat, Year)]
     ss$Forest_Insect_damage_frac <- ss$Forest_Insect_damage / ss$Forest_sum 
     ss$Forest_Storm_damage_frac  <- ss$Forest_Storm_damage / ss$Forest_sum 
     ss <- ss[which(ss$Year>2024),]
     
+  
     #calculate the cumulative sum of Insect and Storm damage fractions for the timeperiods 2025-2050, 2050-2070, 2070-2100
     
     library(data.table)
@@ -512,6 +528,7 @@ for(scenario in scenarios){
       .(
         CumInsect = sum(Forest_Insect_damage_frac, na.rm = TRUE),
         CumStorm  = sum(Forest_Storm_damage_frac,  na.rm = TRUE),
+        CumBurntArea  = sum(Burnt_area_frac,  na.rm = TRUE),
         FOREST    = first(FOREST)
       ),
       by = .(Lon, Lat, Year)
@@ -521,12 +538,14 @@ for(scenario in scenarios){
     cmass_wood_lost@data <- cumsum_damage
     plotSpatial(cmass_wood_lost, years=c(2050,2070,2090),layers="CumInsect", legend.title = "Insect damage fraction")
     plotSpatial(cmass_wood_lost, years=c(2050,2070,2090),layers="CumStorm", legend.title = "storm damage fraction")
+    plotSpatial(cmass_wood_lost, years=c(2050,2070,2090),layers="CumBurntArea", legend.title = "gridcell burnt area fraction")
     
     
     print(scenario)
     print(summary(cumsum_damage))
     print(quantile(cumsum_damage$CumStorm,0.75))
     print(quantile(cumsum_damage$CumInsect,0.75))
+    print(quantile(cumsum_damage$CumBurntArea,0.75))
     if(scenario=="ssp126"){
           write.csv(cumsum_damage, "../data/processed/ssp126_disturbance_risk.csv", row.names = FALSE)
         }else{
@@ -537,6 +556,214 @@ for(scenario in scenarios){
 ```
 
 
+```{r for Risk_analysis_stakeholders_carbon_loss}
+
+#pretty plots are created with plot_disturbance_and_carbonloss_risk.ipynb
+
+
+landcover_fractions_2025 <- landcover_fractions[which(landcover_fractions$Year==2025),]
+
+v16 <- "/Volumes/Anne's Backup/ForestPaths/v16/"  
+base_dir <- v16
+source("../../3_analysis_ForestPaths_Exploratory_runs/scripts/helper_functions.R")
+management ="base"
+
+ scenario = "ssp126"
+    #retrieve the source file location + add some metadata:
+    folder_name <- paste0(base_dir,management, "_fut_MPI-ESM1-2-HR_",
+                          scenario, "_diston")
+    source.in = defineSource(id= paste0(management,"_",scenario),
+                             dir= paste0(folder_name),
+                             format = GUESS,
+                             name = paste0(management,"_",scenario))
+    
+# 1. Get forest biomass (from cmass_wood_sts or diam_cmass_wood)
+    myData_cmass_126 <- getField(source = source.in, quant = "cmass_wood_sts")
+    # Use Forest_sum column which is already forest-level
+    # Or if using diam_cmass_wood, process as before
+    myData_cmass_126@data <- myData_cmass_126@data[,c("Lon","Lat","Year","Forest_sum")]
+    
+    # Filter for years 2025 and 2070, reshape to wide format
+    result <- dcast(myData_cmass_126@data[Year %in% c(2030, 2050,2070,2090)], 
+                    Lon + Lat ~ Year, 
+                    value.var = "Forest_sum")
+    
+    # Calculate difference (2050 - 2030)
+    result[, ssp126VegCdiff_2050_2030 := `2050` - `2030`]
+    # Calculate difference (2070 - 2030)
+    result[, ssp126VegCdiff_2070_2050 := `2070` - `2050`]
+    # Calculate difference (2090 - 2070)
+    result[, ssp126VegCdiff_2090_2070 := `2090` - `2070`]
+     # Calculate difference (2090 - 2030)
+    result[, ssp126VegCdiff_2090_2030 := `2090` - `2030`]
+    
+    myData_cmass_126@data <- result
+    
+    collect <- myData_cmass_126@data
+    
+
+  scenario = "ssp370"
+    #retrieve the source file location + add some metadata:
+    folder_name <- paste0(base_dir,management, "_fut_MPI-ESM1-2-HR_",
+                          scenario, "_diston")
+    source.in = defineSource(id= paste0(management,"_",scenario),
+                             dir= paste0(folder_name),
+                             format = GUESS,
+                             name = paste0(management,"_",scenario))
+    
+    
+    # 1. Get forest biomass (from cmass_wood_sts or diam_cmass_wood)
+    myData_cmass_ssp370 <- getField(source = source.in, quant = "cmass_wood_sts")
+    # Use Forest_sum column which is already forest-level
+    # Or if using diam_cmass_wood, process as before
+    myData_cmass_ssp370@data <- myData_cmass_ssp370@data[,c("Lon","Lat","Year","Forest_sum")]
+    
+    # Filter for years 2025 and 2070, reshape to wide format
+    result <- dcast(myData_cmass_ssp370@data[Year %in% c(2030,2050,2070,2090)], 
+                    Lon + Lat ~ Year, 
+                    value.var = "Forest_sum")
+    
+    # Calculate difference (2050 - 2030)
+    result[, ssp370VegCdiff_2050_2030 := `2050` - `2030`]
+    # Calculate difference (2070 - 2030)
+    result[, ssp370VegCdiff_2070_2050 := `2070` - `2050`]
+    # Calculate difference (2090 - 2070)
+    result[, ssp370VegCdiff_2090_2070 := `2090` - `2070`]
+     # Calculate difference (2090 - 2030)
+    result[, ssp370VegCdiff_2090_2030 := `2090` - `2030`]
+    myData_cmass_ssp370@data <- result
+    collect <- merge(collect,myData_cmass_ssp370@data[,c("Lat","Lon","ssp370VegCdiff_2050_2030","ssp370VegCdiff_2070_2050","ssp370VegCdiff_2090_2070","ssp370VegCdiff_2090_2030")])
+    
+    # ============================================================
+    # Carbon risks ecosystem carbon
+    # ============================================================
+    
+    #Baseline 
+    
+    scenario = "ssp126"
+    #retrieve the source file location + add some metadata:
+    folder_name <- paste0(base_dir,management, "_fut_MPI-ESM1-2-HR_",
+                          scenario, "_diston")
+    source.in = defineSource(id= paste0(management,"_",scenario),
+                             dir= paste0(folder_name),
+                             format = GUESS,
+                             name = paste0(management,"_",scenario))
+    
+    # 1. Get forest biomass (from cmass_wood_sts or diam_cmass_wood)
+    myData_cmass_126 <- getField(source = source.in, quant = "cpool") # split litter and soil ; check veg litter and soil changes... check Total does not contain harvested wood products.
+    # Use Forest_sum column which is already forest-level
+    # Or if using diam_cmass_wood, process as before
+    myData_cmass_126@data <- myData_cmass_126@data[,c("Lon","Lat","Year","Total")]
+   
+    # Filter for years 2025 and 2070, reshape to wide format
+    result <- dcast(myData_cmass_126@data[Year %in% c(2030,2050,2070,2090)], 
+                    Lon + Lat ~ Year, 
+                    value.var = "Total")
+    
+    # Calculate difference (2050 - 2030)
+    result[, ssp126EcosystemCdiff_2050_2030 := `2050` - `2030`]
+    # Calculate difference (2070 - 2030)
+    result[, ssp126EcosystemCdiff_2070_2050 := `2070` - `2050`]
+    # Calculate difference (2090 - 2070)
+    result[, ssp126EcosystemCdiff_2090_2070 := `2090` - `2070`]
+     # Calculate difference (2090 - 2030)
+    result[, ssp126EcosystemCdiff_2090_2030 := `2090` - `2030`]
+
+    myData_cmass_126@data <- result
+    
+    
+    collect <- merge(collect,myData_cmass_126@data[,c("Lat","Lon","ssp126EcosystemCdiff_2050_2030","ssp126EcosystemCdiff_2070_2050","ssp126EcosystemCdiff_2090_2070","ssp126EcosystemCdiff_2090_2030")])
+
+    
+  scenario = "ssp370"
+    #retrieve the source file location + add some metadata:
+    folder_name <- paste0(base_dir,management, "_fut_MPI-ESM1-2-HR_",
+                          scenario, "_diston")
+    source.in = defineSource(id= paste0(management,"_",scenario),
+                             dir= paste0(folder_name),
+                             format = GUESS,
+                             name = paste0(management,"_",scenario))
+    
+    
+    # 1. Get forest biomass (from cmass_wood_sts or diam_cmass_wood)
+    myData_cmass_ssp370 <- getField(source = source.in, quant = "cpool")
+    # Use Forest_sum column which is already forest-level
+    # Or if using diam_cmass_wood, process as before
+    myData_cmass_ssp370@data <- myData_cmass_ssp370@data[,c("Lon","Lat","Year","Total")]
+    
+    # Filter for years 2025 and 2070, reshape to wide format
+    result <- dcast(myData_cmass_ssp370@data[Year %in% c(2030,2050,2070,2090)], 
+                    Lon + Lat ~ Year, 
+                    value.var = "Total")
+    
+    # Calculate difference (2050 - 2030)
+    result[, ssp370EcosystemCdiff_2050_2030 := `2050` - `2030`]
+    # Calculate difference (2070 - 2030)
+    result[, ssp370EcosystemCdiff_2070_2050 := `2070` - `2050`]
+    # Calculate difference (2090 - 2070)
+    result[, ssp370EcosystemCdiff_2090_2070 := `2090` - `2070`]
+     # Calculate difference (2090 - 2030)
+    result[, ssp370EcosystemCdiff_2090_2030 := `2090` - `2030`]
+    myData_cmass_ssp370@data <- result
+  
+    
+    collect <- merge(collect,myData_cmass_ssp370@data[,c("Lat","Lon","ssp370EcosystemCdiff_2050_2030","ssp370EcosystemCdiff_2070_2050","ssp370EcosystemCdiff_2090_2070","ssp370EcosystemCdiff_2090_2030")])
+    
+    #merge with forest fraction for legend plotting:
+    collect <- collect[landcover_fractions_2025[,c("Lon","Lat","FOREST")], on = .(Lon, Lat)]
+    
+      # export as .csv
+    write.csv(collect, "../data/processed/Forest_and_ecosystem_carbon_loss_data_diff_selected_years.csv", row.names = FALSE)
+
+```
+
+
+
+
+
+
+
+“Methods”
+
+
+Periods considered (can be changed and plots quickly re-rendered)
+
+
+Analysis Chunk:  “Management_impact_on_dist_NBP”
+
+nbp_dist_effect.pdf
+Forest-level nbp differences between diston and distoff for each year and gridcell
+Calculate period-mean harvest differences for each individual gridcell
+Calculate group/regional mean of nbp differences, plotted as barplot
+Standard error shown
+
+
+nbp_byregion_boxplots_distonoff.pdf
+
+
+Analysis Chunk:  “Management_impact_on_dist_harvest”
+
+harvest_dist_effect.pdf
+Forest-level harvest differences between diston and distoff for each year and gridcell
+Calculate period-mean harvest differences for each individual gridcell
+Calculate group/regional mean of harvest differences is plotted as barplot
+Standard error shown
+
+harvest_byregion_boxplots_distonoff.pdf
+Forest-level total harvest of diston and distoff
+Calculate period-mean of total harvest diston for each individual gridcell
+Calculate period-mean of total harvest distoff for each individual gridcell
+Within each group, calculate paired Wilcox test for each gridcell and year.
+Calculate group/regional mean of 
+
+Analysis Chunk:
+“Management_impact_on_disturbance_losses_cumulative_disturbance_plots”
+
+Calculate total annual gridcell losses and total biomass, calculate annual losses as percentage of biomass.
+Display all three periods per management case and region.
+Barplots show standard error.
+
+disturbance_losses_byregion_and_period_barplot.pdf
 
 
 ```{r choose_regions}
@@ -695,6 +922,81 @@ legend("topleft",
        bty    = "n",
        cex=0.6)
 
+###### nicer graph, from Claude:
+detach("package:DGVMTools", unload=TRUE) # otherwise rnaturalearth doestn seem to work
+library(ggplot2)
+library(rnaturalearth)
+library(sf)
+
+# Define a cleaner, more distinguishable colour palette
+colour_key <- data.table(
+  Group  = c("CentralEuropeBL", "CentralEuropeNL", "Poland", "NorthernFinland",
+             "BalticsSouthernFinland", "EasternEurope", "SouthernSweden", "UKIr"),
+  colour = c("#E69F00", "#009E73", "#D55E00", "#56B4E9",
+             "#0072B2", "#CC79A7", "#F0E442", "#999999")
+)
+
+# Merge colours back into the groups data
+harv_st_clusters_subs_groups[colour_key, on = "Group", colour := i.colour]
+
+# Get Europe country outlines
+europe <- ne_countries(scale = "medium", continent = "Europe", returnclass = "sf")
+
+# Combine background and group data for plotting
+background_df  <- as.data.frame(harv_st_clusters_subs)
+foreground_df  <- as.data.frame(harv_st_clusters_subs_groups)
+foreground_df$Group <- factor(foreground_df$Group, levels = colour_key$Group)
+
+group_colours <- setNames(colour_key$colour, colour_key$Group)
+
+ggplot() +
+  # Country outlines as base layer
+  geom_sf(data = europe, fill = "#f5f5f0", colour = "black", linewidth = 0.3)+
+
+  # Background (unclassified) grid cells
+  geom_tile(data = background_df,
+            aes(x = Lon, y = Lat),
+            fill = "#cccccc", width = 0.5, height = 0.5) +
+  # Classified group grid cells
+  geom_tile(data = foreground_df,
+            aes(x = Lon, y = Lat, fill = Group),
+            width = 0.5, height = 0.5) +
+  scale_fill_manual(
+    values = group_colours,
+    name   = "Region / Forest type",
+    labels = c(
+      "CentralEuropeBL"      = "Central Europe – Broadleaf",
+      "CentralEuropeNL"      = "Central Europe – Needleleaf",
+      "Poland"               = "Poland",
+      "NorthernFinland"      = "Northern Finland",
+      "BalticsSouthernFinland" = "Baltics & Southern Finland",
+      "EasternEurope"        = "Eastern Europe",
+      "SouthernSweden"       = "Southern Sweden",
+      "UKIr"                 = "UK & Ireland"
+    )
+  ) +
+  # Clip to Europe bounding box
+  coord_sf(xlim = c(-12, 40), ylim = c(35, 72), expand = FALSE) +
+  labs(
+    title    = "European forest regions by dominant genus and harvest cluster",
+    subtitle = "Grid cells with dominant stand fractional cover > 0.45",
+    x        = "Longitude",
+    y        = "Latitude"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 13),
+    plot.subtitle    = element_text(colour = "grey40", size = 10),
+    legend.position  = "right",
+    legend.key.size  = unit(0.45, "cm"),
+    legend.text      = element_text(size = 9),
+    legend.title     = element_text(face = "bold", size = 10),
+    panel.grid.major = element_line(colour = "grey85", linewidth = 0.3),
+    panel.background = element_rect(fill = "#d6e8f5", colour = NA), # light ocean colour
+    plot.background  = element_rect(fill = "white", colour = NA)
+  )
+
+library(DGVMTools) #reload DGVMTools
 
 ```
 
@@ -1318,6 +1620,8 @@ dev.off()
 ```{r Management_impact_on_dist_harvest}
 
 #investigate the impact of forest management on disturbance (risk?):
+# converting to M3/ha
+#lpjgvalue/mean_wood_density*0.5*10000
 
 v16 <- "/Volumes/Anne's Backup/ForestPaths/v16/"  
 base_dir <- v16
@@ -1381,8 +1685,10 @@ for( management in managementslist) {
       by = .(Lon, Lat, Year)
     ]
     
-    #merge with the regions /(groups):
+    #convert to m3/ha
+    collect_cumsum$Cum_TotHarv_diff <- collect_cumsum$Cum_TotHarv_diff/mean_wooddensity_df$MeanWoodDensity*0.5*10000
     
+    #merge with the regions /(groups):
     collect_cumsum_merged <- collect_cumsum[harv_st_clusters_subs_groups[,c("Lon","Lat","Group","colour")], on = .(Lon, Lat)]
     
     
@@ -1397,7 +1703,7 @@ for( management in managementslist) {
   
     scale_fill_manual(values = group_colours) +
     facet_wrap(~ Year, ncol = 3) +
-    labs(x = NULL, y = "harvest difference (diston - distoff), 20 year mean across region [KgC/m2]", fill = "Group") +
+    labs(x = NULL, y = "harvest difference (diston - distoff), \n20 year mean across region [m3/ha]", fill = "Group") +
     theme_bw() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1),
           legend.position = "bottom")
@@ -1460,7 +1766,7 @@ for( management in managementslist) {
       .(
         mean_TotHarv_diff = mean(TotHarv_diff, na.rm = TRUE),
         mean_TotHarv_on   = mean(TotHarv_on, na.rm = TRUE),
-        mean_TotHarv_off  = mean(TotHarv_off, na.rm = TRUE),
+        mean_TotHarv_off  = mean(TotHarv_off, na.rm = TRUE)
 
         #FOREST    = first(FOREST)
       ),
@@ -1480,8 +1786,13 @@ for( management in managementslist) {
     all_data[[paste(scenario, management, sep = "_")]] <- copy(collect_cumsum_merged)
   }
 }
-
 all_data_dt <- rbindlist(all_data)
+
+
+#convert to m3/ha
+all_data_dt[, mean_TotHarv_diff := mean_TotHarv_diff / mean_wooddensity_df$MeanWoodDensity * 0.5 * 10000]
+all_data_dt[, mean_TotHarv_on   := mean_TotHarv_on   / mean_wooddensity_df$MeanWoodDensity * 0.5 * 10000]
+all_data_dt[, mean_TotHarv_off  := mean_TotHarv_off  / mean_wooddensity_df$MeanWoodDensity * 0.5 * 10000]
 
 pdf(paste0(outdir, "harvest_dist_effect_byregion.pdf"), width = 12, height = 6)
 for (sc in scenarios) {
@@ -1495,7 +1806,7 @@ for (sc in scenarios) {
       scale_fill_manual(values = mgmt_colours) +
       facet_wrap(~ Year, ncol = 3) +
       labs(x = "Management",
-           y     = "Harvest difference (diston - distoff), 20-year mean across region [kgC/m\u00b2]",
+           y     = "Harvest difference (diston - distoff), \n20-year mean across region  [m\u00b3/ha]", 
            fill  = "Management",
            title = paste(grp, sc)) +
       theme_bw() +
@@ -1593,7 +1904,7 @@ p <- ggplot(plot_long,
   ) +
   facet_wrap(~ Year, ncol = 3) +
   labs(x     = "Management",
-       y     = "Harvest 20-year-mean across region [kgC/m\u00b2]",
+       y     = "Harvest 20-year-mean across region  [m\u00b3/ha]",
        title = paste(unique(plot_data$Group), unique(plot_data$scenario))) +
   theme_bw() +
   theme(axis.text.x     = element_text(angle = 45, hjust = 1),
